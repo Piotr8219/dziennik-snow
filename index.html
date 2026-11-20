@@ -3,6 +3,14 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#060913" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" type="image/png" href="icon-192.png" />
+  <link rel="apple-touch-icon" href="apple-touch-icon.png" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="Dziennik Snów" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <title>Dziennik Snów — Prywatny dziennik snów offline i online</title>
   <style>
     :root {
@@ -607,6 +615,7 @@
     <section id="pobierz" class="install">
       <h2 class="section-heading">Zainstaluj w 10 sekund</h2>
       <p class="section-desc">Instalujesz prosto z przeglądarki, bez sklepu. Na ekranie głównym pojawi się ikona jak w zwykłej aplikacji.</p>
+      <div style="text-align:center;margin-bottom:22px"><button id="installBtn" class="btn-primary" type="button" style="display:none;border:none;cursor:pointer">⬇ Zainstaluj teraz</button></div>
       <div class="install-grid">
         <div class="install-card" id="ios">
           <h3>🍎 iPhone (Safari)</h3>
@@ -835,6 +844,24 @@
 
     wczytaj();
     setInterval(wczytaj, 60000);   // co minutę sprawdza, czy ktoś dodał nową opinię
+  </script>
+  <!-- PWA: instalacja i tryb offline -->
+  <script>
+    if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
+    if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
+    let instalacja = null;
+    const instBtn = document.getElementById("installBtn");
+    window.addEventListener("beforeinstallprompt", e => {
+      e.preventDefault(); instalacja = e; instBtn.style.display = "inline-flex";
+    });
+    instBtn.addEventListener("click", async () => {
+      if (!instalacja) return;
+      instalacja.prompt(); await instalacja.userChoice; instalacja = null; instBtn.style.display = "none";
+    });
+    // Główny przycisk "Pobierz aplikację": na Androidzie od razu otwiera instalację
+    document.querySelectorAll('a[href="#pobierz"].btn-primary').forEach(a => a.addEventListener("click", e => {
+      if (instalacja) { e.preventDefault(); instBtn.click(); }
+    }));
   </script>
 </body>
 </html>
