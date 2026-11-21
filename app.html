@@ -334,7 +334,7 @@
         <p class="muted small" style="margin:4px 0 12px">Kasuje sny, nagrania i profil z tego telefonu. Tego nie da się cofnąć.</p>
         <button class="btn danger full" id="wipeBtn">Usuń wszystko</button>
       </div>
-      <p class="muted small" style="text-align:center"><a href="./" style="color:var(--muted)">Strona Dziennika Snów</a> · wersja 1.11</p>
+      <p class="muted small" style="text-align:center"><a href="./" style="color:var(--muted)">Strona Dziennika Snów</a> · wersja 1.12</p>
     </section>
   </main>
 
@@ -840,10 +840,15 @@
     const r = new SR(); r.lang = "pl-PL"; r.continuous = true; r.interimResults = true;
     const base = ta.value ? ta.value.replace(/\s*$/, "") + "\n" : "";
     let finalTxt = "";
-    dyktuje = { r, btn, stopByUser: false, blad: null, cos: false };
+    dyktuje = { r, btn, stopByUser: false, blad: null, cos: false, edycja: false };
+    // Gdy użytkownik dotknie pola albo zacznie pisać, kończymy dyktowanie i NIE nadpisujemy jego poprawek
+    const przejmij = () => { if (dyktuje && dyktuje.r === r) { dyktuje.edycja = true; stopDict(); } };
+    ta.addEventListener("pointerdown", przejmij, { once: true });
+    ta.addEventListener("beforeinput", przejmij, { once: true });
     btn.classList.add("live"); btn.textContent = "⏹ Słucham… dotknij, aby zakończyć";
     r.onresult = e => {
-      dyktuje && (dyktuje.cos = true);
+      if (!dyktuje || dyktuje.r !== r || dyktuje.edycja) return;
+      dyktuje.cos = true;
       let interim = "";
       for (let i = e.resultIndex; i < e.results.length; i++) {
         const t = e.results[i][0].transcript;
@@ -870,7 +875,9 @@
       if (dyktuje && dyktuje.r === r && !dyktuje.stopByUser && !dyktuje.blad) { try { r.start(); return; } catch (x) {} }
       if (dyktuje && dyktuje.r === r && !dyktuje.cos && !dyktuje.blad && dyktuje.stopByUser) toast("Nic nie usłyszałem. Możesz też użyć mikrofonu na klawiaturze 🎤");
       btn.classList.remove("live"); btn.textContent = label;
-      ta.value = base + finalTxt; ta.dispatchEvent(new Event("input"));
+      const edytowal = dyktuje && dyktuje.r === r && dyktuje.edycja;
+      if (!edytowal) { ta.value = base + finalTxt; ta.dispatchEvent(new Event("input")); }
+      ta.removeEventListener("pointerdown", przejmij); ta.removeEventListener("beforeinput", przejmij);
       if (dyktuje && dyktuje.r === r) dyktuje = null;
     };
     try { r.start(); } catch (x) { toast("Nie udało się włączyć dyktowania."); dyktuje = null; btn.classList.remove("live"); btn.textContent = label; }
