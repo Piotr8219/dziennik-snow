@@ -39,7 +39,7 @@
     .card { background: var(--card); border: 1px solid var(--border); border-radius: 18px; padding: 16px; margin-bottom: 12px; }
     .row { display: flex; align-items: center; gap: 10px; }
     .between { justify-content: space-between; }
-    .chip { display: inline-flex; align-items: center; gap: 6px; font-size: .78rem; padding: 4px 10px; border-radius: 999px; background: rgba(245,158,11,.14); color: #fcd34d; border: 1px solid rgba(245,158,11,.35); }
+    .chip { white-space: nowrap; display: inline-flex; align-items: center; gap: 6px; font-size: .78rem; padding: 4px 10px; border-radius: 999px; background: rgba(245,158,11,.14); color: #fcd34d; border: 1px solid rgba(245,158,11,.35); }
     .chip.purple { background: rgba(168,85,247,.16); color: #e9d5ff; border-color: rgba(168,85,247,.45); }
     .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 12px 18px; border-radius: 14px; border: 1px solid rgba(255,255,255,.14); background: linear-gradient(135deg, #7c3aed, var(--orange)); color: #fff; font-weight: 700; font-size: .95rem; cursor: pointer; }
     .btn.ghost { background: rgba(255,255,255,.06); }
@@ -93,6 +93,7 @@
     .entry p { white-space: pre-wrap; }
     .del-entry { background: none; border: none; color: var(--muted); font-size: .75rem; cursor: pointer; margin-top: 4px; font-family: inherit; }
     .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 6px 0 14px; }
+    .dict.live { background: linear-gradient(135deg, #dc2626, var(--orange)); animation: pulse 1.4s ease-in-out infinite; }
     .rec-mini.live { background: linear-gradient(135deg, #dc2626, var(--orange)); }
 
     /* NUMEROLOGIA */
@@ -206,6 +207,7 @@
         <button class="btn ghost" id="addNoteBtn">✍️ Dopisz</button>
       </div>
       <div id="noteBox" hidden>
+        <button class="btn ghost full dict" data-for="noteText" style="margin-bottom:8px">🎤 Mów, a ja zapiszę</button>
         <textarea id="noteText" rows="4" placeholder="Co jeszcze pamiętasz?"></textarea>
         <button class="btn full" id="saveNote" style="margin-top:8px">Zapisz notatkę</button>
       </div>
@@ -223,7 +225,8 @@
       <div class="card" id="dAkasza" hidden>
         <b>🔮 Odniesienie do Kronik Akaszy</b>
         <p class="muted small" style="margin:4px 0 8px">Twoje skojarzenia tego snu z odczytem lub kontekstem duszy.</p>
-        <textarea id="akaszaNote" rows="3" placeholder="Co ten sen mówi w kontekście Twojego odczytu?"></textarea>
+        <button class="btn ghost full dict" data-for="akaszaNote" style="margin-bottom:8px">🎤 Mów, a ja zapiszę</button>
+        <textarea id="akaszaNote" rows="4" placeholder="Co ten sen mówi w kontekście Twojego odczytu?"></textarea>
       </div>
 
       <button class="btn danger full" id="delDream" style="margin-top:8px">🗑️ Usuń ten sen</button>
@@ -240,7 +243,8 @@
       <div class="card" id="akaszaCard" hidden style="border-color:rgba(168,85,247,.5)">
         <div class="row between"><b>🔮 Kroniki Akaszy</b><span class="chip purple">Premium · teraz za darmo</span></div>
         <p class="muted small" style="margin:6px 0 8px">Twój własny kontekst: odczyty, przesłania, intencje. Możesz go uwzględniać przy każdym śnie.</p>
-        <textarea id="akaszaCtx" rows="6" placeholder="Wpisz tu swój kontekst z Kronik Akaszy…"></textarea>
+        <button class="btn full dict" data-for="akaszaCtx" style="margin-bottom:8px">🎤 Mów, a ja zapiszę</button>
+        <textarea id="akaszaCtx" rows="7" placeholder="Opowiedz, co widziałeś i czułeś. Nie musi być po kolei, ważne, żeby było wszystko."></textarea>
         <p class="muted small" id="akaszaSaved" style="margin-top:6px"></p>
       </div>
     </section>
@@ -275,17 +279,11 @@
       </div>
 
       <div class="card">
-        <b>🎂 Podgląd życzeń</b>
-        <p class="muted small" style="margin:4px 0 12px">Zobacz, jak wyglądają życzenia w dniu Twoich urodzin.</p>
-        <button class="btn ghost full" id="previewBday">Pokaż życzenia</button>
-      </div>
-
-      <div class="card">
         <b>⚠️ Usuń wszystkie dane</b>
         <p class="muted small" style="margin:4px 0 12px">Kasuje sny, nagrania i profil z tego telefonu. Tego nie da się cofnąć.</p>
         <button class="btn danger full" id="wipeBtn">Usuń wszystko</button>
       </div>
-      <p class="muted small" style="text-align:center"><a href="./" style="color:var(--muted)">Strona Dziennika Snów</a> · wersja 1.0</p>
+      <p class="muted small" style="text-align:center"><a href="./" style="color:var(--muted)">Strona Dziennika Snów</a> · wersja 1.1</p>
     </section>
   </main>
 
@@ -447,10 +445,17 @@
     if (m === 2 && d === 29 && !przest) return dzis.getMonth() === 1 && dzis.getDate() === 28;
     return dzis.getMonth() + 1 === m && dzis.getDate() === d;
   }
-  function pokazUrodziny(force) {
+  // Niespodzianka: w dniu urodzin po pierwszym nagraniu albo od 10:00 (co nastąpi pierwsze), raz na dzień
+  const GODZINA_ZYCZEN = 10;
+  const dzisKlucz = (d = new Date()) => `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+  function pokazUrodziny(force, poNagraniu) {
     const p = LS.get("profil", null); if (!p) return;
-    const dzis = new Date(), klucz = dzis.toISOString().slice(0, 10);
-    if (!force && (!czyUrodziny(p.data, dzis) || LS.get("bdayShown") === klucz)) return;
+    const dzis = new Date(), klucz = dzisKlucz(dzis);
+    if (!force) {
+      if (!czyUrodziny(p.data, dzis) || LS.get("bdayShown") === klucz) return;
+      if (!poNagraniu && dzis.getHours() < GODZINA_ZYCZEN) return;
+      if (!$("bday").hidden || rec) return;
+    }
     const wiek = dzis.getFullYear() - Number(p.data.slice(0, 4));
     $("bdayTitle").textContent = `Sto lat, ${p.imie}!`;
     $("bdayText").textContent = wybierzZyczenie(p.imie, dzis.getFullYear());
@@ -481,7 +486,7 @@
     if (v === "num") renderNum();
     if (v === "set") renderSet();
   }
-  document.querySelectorAll("#tabs button").forEach(b => b.onclick = () => { stopIfRecording(); show(b.dataset.v); });
+  document.querySelectorAll("#tabs button").forEach(b => b.onclick = () => { stopIfRecording(); if (typeof stopDict === "function") stopDict(); show(b.dataset.v); });
 
   /* =====================================================
      POWITANIE
@@ -492,7 +497,7 @@
     const imie = $("onbName").value.trim(), data = $("onbDate").value;
     if (imie.length < 2 || !data) return;
     LS.set("profil", { imie, data });
-    show("home"); pokazUrodziny();
+    show("home");
   };
 
   /* =====================================================
@@ -540,7 +545,8 @@
     await dbPut("nagrania", { id: uid(), snId, blob, mime: blob.type, dur, created: Date.now() });
     const sen = await dbGet("sny", snId); sen.updated = Date.now(); await dbPut("sny", sen);
     toast(recTarget ? "Dograne do snu ✨" : "Sen zapisany 🌙");
-    openDream(snId);
+    await openDream(snId);
+    setTimeout(() => pokazUrodziny(false, true), 1500);
   }
   $("recBtn").onclick = e => rec ? stopIfRecording() : startRec(null, e.currentTarget);
   $("writeBtn").onclick = async () => {
@@ -653,7 +659,7 @@
   async function saveField(fn) { const s = await dbGet("sny", openId); if (!s) return; fn(s); s.updated = Date.now(); await dbPut("sny", s); }
   $("dTitle").onchange = () => saveField(s => s.title = $("dTitle").value.trim() || s.title);
   $("akaszaNote").oninput = () => { clearTimeout($("akaszaNote")._h); $("akaszaNote")._h = setTimeout(() => saveField(s => s.akasza = $("akaszaNote").value), 500); };
-  $("backBtn").onclick = () => { stopIfRecording(); show(backTo); };
+  $("backBtn").onclick = () => { stopIfRecording(); stopDict(); show(backTo); };
   $("addRecBtn").onclick = e => rec ? stopIfRecording() : startRec(openId, e.currentTarget);
   $("addNoteBtn").onclick = () => { $("noteBox").hidden = !$("noteBox").hidden; if (!$("noteBox").hidden) $("noteText").focus(); };
   $("saveNote").onclick = async () => {
@@ -680,6 +686,45 @@
   }
   $("tagAdd").onclick = async () => { for (const t of $("tagIn").value.split(",")) await addTag(t); };
   $("tagIn").onkeydown = e => { if (e.key === "Enter") { e.preventDefault(); $("tagAdd").click(); } };
+
+
+  /* =====================================================
+     DYKTOWANIE (mowa → tekst), wymaga internetu
+     ===================================================== */
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  let dyktuje = null;
+  function stopDict() { if (dyktuje) { dyktuje.stopByUser = true; dyktuje.r.stop(); } }
+  function startDict(btn) {
+    if (dyktuje) { const same = dyktuje.btn === btn; stopDict(); if (same) return; }
+    if (!SR) { toast("Ten telefon nie obsługuje dyktowania. Spróbuj w Chrome."); return; }
+    if (!navigator.onLine) { toast("Zamiana mowy na tekst potrzebuje internetu."); return; }
+    const ta = $(btn.dataset.for), label = btn.textContent;
+    const r = new SR(); r.lang = "pl-PL"; r.continuous = true; r.interimResults = true;
+    const base = ta.value ? ta.value.replace(/\s*$/, "") + "\n" : "";
+    let finalTxt = "";
+    dyktuje = { r, btn, stopByUser: false };
+    btn.classList.add("live"); btn.textContent = "⏹ Słucham… dotknij, aby zakończyć";
+    r.onresult = e => {
+      let interim = "";
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const t = e.results[i][0].transcript;
+        if (e.results[i].isFinal) finalTxt += (finalTxt ? " " : "") + t.trim(); else interim += t;
+      }
+      ta.value = base + finalTxt + (interim ? " " + interim : "");
+      ta.dispatchEvent(new Event("input"));
+      ta.scrollTop = ta.scrollHeight;
+    };
+    r.onerror = e => { if (e.error === "not-allowed") toast("Zezwól na mikrofon, żeby dyktować."); else if (e.error === "network") toast("Brak internetu do zamiany mowy na tekst."); };
+    r.onend = () => {
+      // Chrome sam przerywa po ciszy, więc wznawiamy, dopóki użytkownik nie zakończy
+      if (dyktuje && dyktuje.r === r && !dyktuje.stopByUser) { try { r.start(); return; } catch (x) {} }
+      btn.classList.remove("live"); btn.textContent = label;
+      ta.value = base + finalTxt; ta.dispatchEvent(new Event("input"));
+      if (dyktuje && dyktuje.r === r) dyktuje = null;
+    };
+    try { r.start(); } catch (x) { toast("Nie udało się włączyć dyktowania."); dyktuje = null; btn.classList.remove("live"); btn.textContent = label; }
+  }
+  document.querySelectorAll(".dict").forEach(b => b.onclick = () => startDict(b));
 
   /* =====================================================
      NUMEROLOGIA
@@ -714,7 +759,6 @@
     LS.set("profil", { imie, data }); toast("Zapisano ✓");
   };
   $("akaszaToggle").onchange = () => { LS.set("akasza", $("akaszaToggle").checked); toast($("akaszaToggle").checked ? "Tryb Kronik Akaszy włączony 🔮" : "Tryb Kronik Akaszy wyłączony"); };
-  $("previewBday").onclick = () => pokazUrodziny(true);
 
   const toB64 = blob => new Promise(r => { const f = new FileReader(); f.onload = () => r(f.result); f.readAsDataURL(blob); });
   async function exportData() {
@@ -788,6 +832,9 @@
     db = await openDB();
     const p = LS.get("profil", null);
     if (!p) show("onb"); else { show("home"); pokazUrodziny(); }
+    if (new URLSearchParams(location.search).has("test-urodziny")) pokazUrodziny(true);   // ukryty test dla autora
+    setInterval(() => pokazUrodziny(), 60000);
+    document.addEventListener("visibilitychange", () => { if (!document.hidden) pokazUrodziny(); });
   })();
   </script>
 </body>
