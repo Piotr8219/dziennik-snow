@@ -332,7 +332,7 @@
         <p class="muted small" style="margin:4px 0 12px">Kasuje sny, nagrania i profil z tego telefonu. Tego nie da się cofnąć.</p>
         <button class="btn danger full" id="wipeBtn">Usuń wszystko</button>
       </div>
-      <p class="muted small" style="text-align:center"><a href="./" style="color:var(--muted)">Strona Dziennika Snów</a> · wersja 1.7</p>
+      <p class="muted small" style="text-align:center"><a href="./" style="color:var(--muted)">Strona Dziennika Snów</a> · wersja 1.8</p>
     </section>
   </main>
 
@@ -357,6 +357,19 @@
       <p id="bdayText"></p>
       <p class="muted small" id="bdayYear" style="margin-top:-10px"></p>
       <button class="btn" id="bdayClose">Dziękuję ✨</button>
+    </div>
+  </div>
+
+  <div class="bday" id="zgoda" hidden style="background:rgba(3,5,12,.8);backdrop-filter:blur(6px)">
+    <div class="card ai-card" style="max-width:420px;text-align:left;padding:22px">
+      <div style="font-size:2rem;text-align:center">✨</div>
+      <h2 style="text-align:center;margin:6px 0 10px">Analiza AI</h2>
+      <p class="small" style="margin-bottom:8px">Do analizy wyślemy <b>tekst wybranych snów</b> (bez nagrań), krótkie opisy wcześniejszych snów, Twoje liczby z numerologii i, jeśli włączone, kontekst z Kronik Akaszy.</p>
+      <p class="muted small" style="margin-bottom:16px">Przetwarza je model AI Anthropic Claude. Nie zapisujemy ich w żadnej bazie. To pytanie pojawia się tylko raz.</p>
+      <div class="actions" style="margin:0">
+        <button class="btn ghost" id="zgodaNie">Nie teraz</button>
+        <button class="btn" id="zgodaTak">Zgadzam się</button>
+      </div>
     </div>
   </div>
 
@@ -875,9 +888,12 @@
   }
   const tekstSnu = s => s.notes.map(n => n.text).join("\n").trim();
   function aiZgoda() {
-    if (LS.get("aiZgoda", false)) return true;
-    if (!confirm("Analiza AI wyśle treść wybranych snów (tekst, bez nagrań), krótkie opisy Twoich wcześniejszych snów, Twoje liczby z numerologii i, jeśli włączone, kontekst z Kronik Akaszy do serwera aplikacji i modelu AI (Anthropic Claude). Nie zapisujemy ich w żadnej bazie. Kontynuować?")) return false;
-    LS.set("aiZgoda", true); return true;
+    if (LS.get("aiZgoda", false)) return Promise.resolve(true);
+    return new Promise(res => {
+      $("zgoda").hidden = false;
+      $("zgodaTak").onclick = () => { LS.set("aiZgoda", true); $("zgoda").hidden = true; res(true); };
+      $("zgodaNie").onclick = () => { $("zgoda").hidden = true; res(false); };
+    });
   }
   async function aiPodstawa(pomin, notatkiAkaszy) {
     const p = LS.get("profil", {}), y = new Date().getFullYear();
@@ -899,7 +915,7 @@
     const s = await dbGet("sny", openId); if (!s) return;
     if (!tekstSnu(s)) { toast("AI analizuje tekst. Dopisz albo podyktuj sen (🎤 Mów, a ja zapiszę). Nagrań głosowych AI jeszcze nie słyszy."); return; }
     if (!navigator.onLine) { toast("Analiza AI wymaga internetu."); return; }
-    if (!aiZgoda()) return;
+    if (!(await aiZgoda())) return;
     const body = { ...(await aiPodstawa([s.id], s.akasza ? ["Notatka do tego snu: " + s.akasza] : [])),
       sen: { data: fmtShort(s.created), tytul: s.title, notatki: s.notes.map(n => n.text), symbole: s.tags } };
     const btn = $("aiBtn"); btn.disabled = true; btn.innerHTML = `<span class="spin"></span> Analizuję sen…`;
@@ -930,7 +946,7 @@
     const zTekstem = wybrane.filter(tekstSnu);
     if (!zTekstem.length) { toast("Zaznaczone sny nie mają tekstu. AI analizuje tylko tekst (podyktuj albo dopisz sen)."); return; }
     if (!navigator.onLine) { toast("Analiza AI wymaga internetu."); return; }
-    if (!aiZgoda()) return;
+    if (!(await aiZgoda())) return;
     const body = { ...(await aiPodstawa(zTekstem.map(s => s.id), zTekstem.filter(s => s.akasza).map(s => `Notatka do snu „${s.title}”: ${s.akasza}`))),
       sny: zTekstem.map(s => ({ id: s.id, data: fmtShort(s.created) + ", " + fmtTime(s.created), tytul: s.title, notatki: s.notes.map(n => n.text), symbole: s.tags })) };
     const btn = $("selGo"); btn.disabled = true; btn.innerHTML = `<span class="spin"></span>`;
