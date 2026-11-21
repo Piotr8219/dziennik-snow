@@ -319,7 +319,7 @@
           <button class="btn" id="exportBtn">⬇ Zapisz kopię</button>
           <button class="btn ghost" id="importBtn">⬆ Wczytaj kopię</button>
         </div>
-        <input type="file" id="importFile" accept=".json,application/json" hidden />
+        <input type="file" id="importFile" accept=".json,.txt,application/json,text/plain,application/octet-stream" hidden />
         <label for="backupFreq">Przypominaj o kopii</label>
         <select id="backupFreq">
           <option value="1">Codziennie</option>
@@ -334,7 +334,7 @@
         <p class="muted small" style="margin:4px 0 12px">Kasuje sny, nagrania i profil z tego telefonu. Tego nie da się cofnąć.</p>
         <button class="btn danger full" id="wipeBtn">Usuń wszystko</button>
       </div>
-      <p class="muted small" style="text-align:center"><a href="./" style="color:var(--muted)">Strona Dziennika Snów</a> · wersja 1.9</p>
+      <p class="muted small" style="text-align:center"><a href="./" style="color:var(--muted)">Strona Dziennika Snów</a> · wersja 1.10</p>
     </section>
   </main>
 
@@ -1061,13 +1061,25 @@
       nagrania: await Promise.all(nagr.map(async r => ({ id: r.id, snId: r.snId, mime: r.mime, dur: r.dur, created: r.created, audio: await toB64(r.blob) })))
     };
     const name = `dziennik-snow-kopia-${new Date().toISOString().slice(0, 10)}.json`;
-    const file = new File([JSON.stringify(dane)], name, { type: "application/json" });
-    try {
-      if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: "Kopia Dziennika Snów" }); }
-      else { const a = document.createElement("a"); a.href = URL.createObjectURL(file); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); }
-      LS.set("lastBackup", Date.now()); toast("Kopia gotowa ✓");
+    const tresc = JSON.stringify(dane);
+    const pobierz = () => {
+      const f = new File([tresc], name, { type: "application/octet-stream" });
+      const a = document.createElement("a"); a.href = URL.createObjectURL(f); a.download = name;
+      document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+    };
+    const gotowe = (gdzie) => {
+      LS.set("lastBackup", Date.now()); toast(gdzie);
       if (current === "set") renderSet(); if (current === "home") renderHome();
-    } catch (e) { if (e.name !== "AbortError") toast("Nie udało się zapisać kopii."); }
+    };
+    // 1) Udostępnianie (np. Dysk Google). Telefony często nie wpuszczają plików .json, więc wysyłamy jako tekst.
+    const plik = new File([tresc], name, { type: "text/plain" });
+    if (navigator.canShare && navigator.canShare({ files: [plik] })) {
+      try { await navigator.share({ files: [plik], title: "Kopia Dziennika Snów" }); return gotowe("Kopia gotowa ✓"); }
+      catch (e) { if (e.name === "AbortError") return; }
+    }
+    // 2) Zapas: zwykłe pobranie pliku do folderu „Pobrane”
+    try { pobierz(); gotowe("Kopia zapisana w „Pobrane” ✓"); }
+    catch (e) { toast("Nie udało się zapisać kopii. Spróbuj ponownie."); }
   }
   $("exportBtn").onclick = exportData;
   $("backupFreq").onchange = () => { LS.set("backupFreq", Number($("backupFreq").value)); toast("Zapisano ✓"); };
