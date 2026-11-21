@@ -209,6 +209,7 @@
       <div id="noteBox" hidden>
         <button class="btn ghost full dict" data-for="noteText" style="margin-bottom:8px">🎤 Mów, a ja zapiszę</button>
         <textarea id="noteText" rows="4" placeholder="Co jeszcze pamiętasz?"></textarea>
+        <p class="muted small" style="margin-top:4px">Wskazówka: możesz też dotknąć pola i użyć 🎤 na klawiaturze telefonu.</p>
         <button class="btn full" id="saveNote" style="margin-top:8px">Zapisz notatkę</button>
       </div>
 
@@ -290,7 +291,7 @@
         <p class="muted small" style="margin:4px 0 12px">Kasuje sny, nagrania i profil z tego telefonu. Tego nie da się cofnąć.</p>
         <button class="btn danger full" id="wipeBtn">Usuń wszystko</button>
       </div>
-      <p class="muted small" style="text-align:center"><a href="./" style="color:var(--muted)">Strona Dziennika Snów</a> · wersja 1.3</p>
+      <p class="muted small" style="text-align:center"><a href="./" style="color:var(--muted)">Strona Dziennika Snów</a> · wersja 1.4</p>
     </section>
   </main>
 
@@ -710,9 +711,10 @@
     const r = new SR(); r.lang = "pl-PL"; r.continuous = true; r.interimResults = true;
     const base = ta.value ? ta.value.replace(/\s*$/, "") + "\n" : "";
     let finalTxt = "";
-    dyktuje = { r, btn, stopByUser: false };
+    dyktuje = { r, btn, stopByUser: false, blad: null, cos: false };
     btn.classList.add("live"); btn.textContent = "⏹ Słucham… dotknij, aby zakończyć";
     r.onresult = e => {
+      dyktuje && (dyktuje.cos = true);
       let interim = "";
       for (let i = e.resultIndex; i < e.results.length; i++) {
         const t = e.results[i][0].transcript;
@@ -722,10 +724,22 @@
       ta.dispatchEvent(new Event("input"));
       ta.scrollTop = ta.scrollHeight;
     };
-    r.onerror = e => { if (e.error === "not-allowed") toast("Zezwól na mikrofon, żeby dyktować."); else if (e.error === "network") toast("Brak internetu do zamiany mowy na tekst."); };
+    const BLEDY = {
+      "not-allowed": "Zezwól na mikrofon dla dzienniksnow.pl w ustawieniach Chrome.",
+      "service-not-allowed": "Telefon nie pozwala na dyktowanie w tej aplikacji. Użyj mikrofonu na klawiaturze 🎤",
+      "network": "Brak internetu do zamiany mowy na tekst.",
+      "audio-capture": "Nie mogę użyć mikrofonu. Zamknij inne aplikacje, które go używają.",
+      "language-not-supported": "Telefon nie obsługuje dyktowania po polsku. Użyj mikrofonu na klawiaturze 🎤"
+    };
+    r.onerror = e => {
+      if (e.error === "no-speech" || e.error === "aborted") return;
+      if (dyktuje) dyktuje.blad = e.error;
+      toast(BLEDY[e.error] || `Dyktowanie nie działa (${e.error}). Użyj mikrofonu na klawiaturze 🎤`);
+    };
     r.onend = () => {
       // Chrome sam przerywa po ciszy, więc wznawiamy, dopóki użytkownik nie zakończy
-      if (dyktuje && dyktuje.r === r && !dyktuje.stopByUser) { try { r.start(); return; } catch (x) {} }
+      if (dyktuje && dyktuje.r === r && !dyktuje.stopByUser && !dyktuje.blad) { try { r.start(); return; } catch (x) {} }
+      if (dyktuje && dyktuje.r === r && !dyktuje.cos && !dyktuje.blad && dyktuje.stopByUser) toast("Nic nie usłyszałem. Możesz też użyć mikrofonu na klawiaturze 🎤");
       btn.classList.remove("live"); btn.textContent = label;
       ta.value = base + finalTxt; ta.dispatchEvent(new Event("input"));
       if (dyktuje && dyktuje.r === r) dyktuje = null;
