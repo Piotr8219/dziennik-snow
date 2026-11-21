@@ -829,6 +829,7 @@
       if (document.getElementById("rvWebsite").value) return;            // pułapka na boty
       if (imie.length < 2 || tresc.length < 10) { msg.textContent = "Wpisz imię i co najmniej 10 znaków opinii."; return; }
       if (/https?:\/\/|www\./i.test(tresc)) { msg.textContent = "Opinia nie może zawierać linków."; return; }
+      if (/(chuj|huj|kurw|pierd|jeba|jebi|jebn|zjeb|pojeb|wyjeb|pizd|cipa|cipy|dziwk|szmat|fiut|kutas|debil|idiot|frajer|gówn|gown|ciul|cwel|spierd|wypierd)/i.test(imie + " " + tresc)) { msg.textContent = "Opinia zawiera niedozwolone słowa. Napisz ją kulturalnie 🙂"; return; }
       let ostatnia = 0; try { ostatnia = Number(localStorage.getItem("ds_opinia")) || 0; } catch (x) {}
       if (Date.now() - ostatnia < 86400000) { msg.textContent = "Możesz dodać jedną opinię na dobę. Dziękujemy!"; return; }
       if (!SUPABASE_URL || !SUPABASE_KEY) { msg.textContent = "Dodawanie opinii będzie dostępne wkrótce."; return; }
@@ -836,7 +837,7 @@
       const btn = document.getElementById("rvSend"); btn.disabled = true; msg.textContent = "Wysyłam…";
       try {
         const r = await api("opinie", { method: "POST", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ imie, tresc, gwiazdki: ocena }) });
-        if (!r.ok) throw 0;
+        if (!r.ok) { const e = await r.text(); msg.textContent = /niedozwolone/.test(e) ? "Opinia zawiera niedozwolone słowa." : /linków/.test(e) ? "Opinia nie może zawierać linków." : "Nie udało się wysłać. Spróbuj za chwilę."; btn.disabled = false; return; }
         try { localStorage.setItem("ds_opinia", String(Date.now())); } catch (x) {}
         msg.textContent = "Dziękujemy! Twoja opinia już jest na stronie 🌙";
         form.reset(); ustawGwiazdki(5); document.getElementById("rvCount").textContent = "0";
