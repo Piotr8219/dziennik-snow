@@ -4,7 +4,7 @@
 // Sekret (Edge Functions → Secrets): ANTHROPIC_API_KEY
 
 const MODEL = Deno.env.get("AI_MODEL") ?? "claude-sonnet-5-5";
-const LIMIT_URZADZENIE = Number(Deno.env.get("AI_LIMIT_URZADZENIE") ?? 10); // analiz dziennie na telefon
+const LIMIT_URZADZENIE = Number(Deno.env.get("AI_LIMIT_URZADZENIE") ?? 1);  // zapytań dziennie na osobę (telefon)
 const LIMIT_DZIENNY = Number(Deno.env.get("AI_LIMIT_DZIENNY") ?? 300);      // analiz dziennie łącznie
 const DOZWOLONE = ["https://dzienniksnow.pl", "https://www.dzienniksnow.pl", "https://piotr8219.github.io"];
 
@@ -51,6 +51,40 @@ const NARZEDZIE = {
   },
 };
 
+const NARZEDZIE_GRUPA = {
+  name: "zapisz_analize_grupy",
+  description: "Zapisuje wspólną analizę kilku snów: osobny wynik dla każdego snu i wspólne podsumowanie.",
+  input_schema: {
+    type: "object",
+    properties: {
+      sny: { type: "array", description: "osobny wynik dla KAŻDEGO snu z wejścia, w tej samej kolejności", items: {
+        type: "object",
+        properties: {
+          id: { type: "string", description: "id snu z wejścia" },
+          ...NARZEDZIE.input_schema.properties,
+        },
+        required: ["id", "tytul", "opis", "symbole", "emocje", "interpretacje", "pytania"],
+      } },
+      wspolne: { type: "object", properties: {
+        podsumowanie: { type: "string", description: "co łączy te sny, 3–6 zdań" },
+        wspolne_motywy: { type: "array", items: { type: "string" } },
+        interpretacje: NARZEDZIE.input_schema.properties.interpretacje,
+        powiazania: NARZEDZIE.input_schema.properties.powiazania,
+        kontekst_osobisty: { type: "string" },
+        pytania: { type: "array", items: { type: "string" } },
+        wsparcie: { type: "string" },
+      }, required: ["podsumowanie", "wspolne_motywy", "interpretacje", "pytania"] },
+    },
+    required: ["sny", "wspolne"],
+  },
+};
+
+const SYSTEM_GRUPA = SYSTEM.replace(
+  /Wynik zapisz WYŁĄCZNIE[\s\S]*$/,
+  `Dostajesz KILKA snów naraz (pole "sny"). Każdy sen przeanalizuj OSOBNO, nie mieszając treści między snami (każdy wynik ma id swojego snu), a potem napisz WSPÓLNE podsumowanie: co je łączy, wspólne motywy i możliwe znaczenie całości. Wspólne motywy wskazuj tylko, jeśli naprawdę występują w zapisach.
+Wynik zapisz WYŁĄCZNIE przez narzędzie "zapisz_analize_grupy". Pisz zwięźle: przy każdym symbolu 2–3 krótkie znaczenia z różnych ujęć, 2–3 interpretacje i 2–3 pytania na sen.`
+);
+
 function cors(origin: string | null) {
   return {
     "Access-Control-Allow-Origin": origin && DOZWOLONE.includes(origin) ? origin : DOZWOLONE[0],
@@ -68,9 +102,13 @@ Deno.serve(async (req) => {
   try {
     const d = await req.json();
     const urz = String(d.urzadzenie || "").slice(0, 64);
-    const wejscie = JSON.stringify({ sen: d.sen, poprzednie: d.poprzednie, profil: d.profil, akasza: d.akasza || "" });
-    if (!urz || !d.sen) return new Response(JSON.stringify({ blad: "Brak danych snu." }), { status: 400, headers: h });
-    if (wejscie.length > 15000) return new Response(JSON.stringify({ blad: "Sen jest za długi do analizy." }), { status: 400, headers: h });
+    const grupa = Array.isArray(d.sny) && d.sny.length > 0;
+    if (grupa && d.sny.length > 6) return new Response(JSON.stringify({ blad: "Naraz można przeanalizować maksymalnie 6 snów." }), { status: 400, headers: h });
+    const wejscie = JSON.stringify(grupa
+      ? { sny: d.sny, poprzednie: d.poprzednie, profil: d.profil, akasza: d.akasza || "" }
+      : { sen: d.sen, poprzednie: d.poprzednie, profil: d.profil, akasza: d.akasza || "" });
+    if (!urz || (!d.sen && !grupa)) return new Response(JSON.stringify({ blad: "Brak danych snu." }), { status: 400, headers: h });
+    if (wejscie.length > (grupa ? 30000 : 15000)) return new Response(JSON.stringify({ blad: "Sen jest za długi do analizy." }), { status: 400, headers: h });
 
     // Limit użycia (chroni przed nadużyciem i kosztami)
     const sbUrl = Deno.env.get("SUPABASE_URL")!;
@@ -84,7 +122,7 @@ Deno.serve(async (req) => {
       body: JSON.stringify({ p_urz: urz, p_limit_urz: LIMIT_URZADZENIE, p_limit_dzien: LIMIT_DZIENNY }),
     });
     if (!lim.ok || (await lim.json()) !== true) {
-      return new Response(JSON.stringify({ blad: "Dzisiejszy limit analiz został wykorzystany. Spróbuj jutro 🌙" }), { status: 429, headers: h });
+      return new Response(JSON.stringify({ blad: "Dzisiejsza analiza AI została już wykorzystana. Kolejna jutro 🌙 Wskazówka: w Historii zaznacz kilka snów i przeanalizuj je razem." }), { status: 429, headers: h });
     }
 
     const r = await fetch("https://api.anthropic.com/v1/messages", {
@@ -96,9 +134,9 @@ Deno.serve(async (req) => {
       },
       body: JSON.stringify({
         model: MODEL,
-        max_tokens: 4000,
-        system: SYSTEM,
-        tools: [NARZEDZIE],
+        max_tokens: grupa ? 12000 : 4000,
+        system: grupa ? SYSTEM_GRUPA : SYSTEM,
+        tools: [grupa ? NARZEDZIE_GRUPA : NARZEDZIE],
         tool_choice: { type: "auto" },
         messages: [{ role: "user", content: "Dane do analizy (JSON):\n" + wejscie }],
       }),

@@ -107,6 +107,17 @@
     .spin { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,.3); border-top-color: #fff; border-radius: 50%; animation: sp 1s linear infinite; }
     @keyframes sp { to { transform: rotate(360deg); } }
 
+    /* WYBÓR SNÓW DO WSPÓLNEJ ANALIZY */
+    .dream .chk { display: none; width: 22px; height: 22px; flex: 0 0 22px; border-radius: 7px; border: 2px solid rgba(255,255,255,.3); place-items: center; font-size: .8rem; }
+    .wybor .dream .chk { display: grid; }
+    .dream.sel { border-color: rgba(168,85,247,.8); background: rgba(168,85,247,.12); }
+    .dream.sel .chk { background: var(--purple); border-color: var(--purple); }
+    .selbar { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(74px + var(--safe-b)); z-index: 11; width: min(540px, calc(100% - 24px));
+      display: flex; gap: 8px; align-items: center; padding: 10px; border-radius: 16px; background: rgba(20,16,48,.96); border: 1px solid rgba(168,85,247,.5); box-shadow: 0 10px 30px rgba(0,0,0,.5); }
+    .selbar[hidden] { display: none; }
+    .selbar span { flex: 1; font-size: .85rem; }
+    .selbar .btn { padding: 9px 12px; font-size: .85rem; }
+
     /* NUMEROLOGIA */
     .num-big { display: flex; align-items: center; gap: 16px; }
     .num-circle { flex: 0 0 72px; height: 72px; border-radius: 50%; display: grid; place-items: center; font-size: 1.9rem; font-weight: 800; background: radial-gradient(circle, rgba(168,85,247,.4), rgba(99,102,241,.12)); border: 1px solid rgba(168,85,247,.55); box-shadow: 0 0 24px rgba(168,85,247,.35); }
@@ -190,7 +201,8 @@
         <button class="btn ghost" id="writeBtn">✍️ Wolę napisać</button>
       </div>
 
-      <h2>Ostatnie sny</h2>
+      <div class="row between"><h2>Ostatnie sny</h2></div>
+      <div id="todayAI"></div>
       <div id="recentList"></div>
     </section>
 
@@ -198,11 +210,20 @@
     <section class="view" id="v-list">
       <h1 style="margin-bottom:14px">Historia snów</h1>
       <input id="search" type="search" placeholder="Szukaj po tytule, treści lub symbolu…" />
+      <button class="btn ghost full" id="selStart" style="margin-top:10px">☑️ Zaznacz sny do wspólnej analizy AI</button>
       <div class="card" style="margin-top:14px">
         <div class="row between"><b>🔁 Powracające symbole</b><span class="muted small" id="dreamCount"></span></div>
         <div class="tags" id="topTags"></div>
       </div>
       <div id="allList"></div>
+    </section>
+
+    <!-- ============ WSPÓLNA ANALIZA ============ -->
+    <section class="view" id="v-group">
+      <button class="back" id="grpBack">← Wróć do historii</button>
+      <h1 style="margin-bottom:6px">✨ Wspólna analiza</h1>
+      <p class="muted small" id="grpInfo" style="margin-bottom:14px"></p>
+      <div id="grpOut"></div>
     </section>
 
     <!-- ============ SZCZEGÓŁY SNU ============ -->
@@ -238,6 +259,7 @@
         <b>✨ Analiza AI</b>
         <p class="muted small" style="margin:4px 0 10px">Porządkuje Twój zapis, wyjaśnia symbole i szuka powiązań z Twoimi wcześniejszymi snami. Spojrzenie psychologii snu, Carla Junga, symboliki i mistyki (Dolores Cannon). Bez zmyślania.</p>
         <button class="btn full" id="aiBtn">✨ Uporządkuj i przeanalizuj</button>
+        <p class="muted small" style="margin-top:6px">1 analiza AI dziennie. Masz kilka snów? W <b>Historii</b> zaznacz je i przeanalizuj razem w jednej analizie.</p>
         <div id="aiOut"></div>
       </div>
 
@@ -309,9 +331,16 @@
         <p class="muted small" style="margin:4px 0 12px">Kasuje sny, nagrania i profil z tego telefonu. Tego nie da się cofnąć.</p>
         <button class="btn danger full" id="wipeBtn">Usuń wszystko</button>
       </div>
-      <p class="muted small" style="text-align:center"><a href="./" style="color:var(--muted)">Strona Dziennika Snów</a> · wersja 1.5</p>
+      <p class="muted small" style="text-align:center"><a href="./" style="color:var(--muted)">Strona Dziennika Snów</a> · wersja 1.6</p>
     </section>
   </main>
+
+  <div class="selbar" id="selBar" hidden>
+    <span id="selCount">Zaznacz sny</span>
+    <button class="btn ghost" id="selToday">Dzisiejsze</button>
+    <button class="btn" id="selGo">✨ Analizuj</button>
+    <button class="btn ghost" id="selCancel" aria-label="Anuluj">✕</button>
+  </div>
 
   <nav class="tabs hide" id="tabs">
     <button data-v="home" class="on"><b>🌙</b>Dziś</button>
@@ -507,6 +536,7 @@
     document.querySelectorAll("#tabs button").forEach(b => b.classList.toggle("on", b.dataset.v === v));
     $("tabs").classList.toggle("hide", v === "onb");
     current = v; window.scrollTo(0, 0);
+    if (v !== "list") { trybWyboru = false; wybor.clear(); $("selBar").hidden = true; }
     if (v === "home") renderHome();
     if (v === "list") renderList();
     if (v === "num") renderNum();
@@ -593,6 +623,9 @@
     $("homeYear").textContent = `✨ Rok Osobisty ${py}`;
     const sny = (await dbAll("sny")).sort((a, b) => b.created - a.created);
     $("recentList").innerHTML = sny.length ? "" : `<div class="empty">Tu pojawią się Twoje sny.<br>Jutro rano dotknij mikrofonu 🌙</div>`;
+    const dzis = sny.filter(s => dzisKlucz(new Date(s.created)) === dzisKlucz());
+    $("todayAI").innerHTML = dzis.length ? `<button class="btn ghost full" id="todayBtn" style="margin-bottom:12px">✨ Podsumuj dzisiejsze sny (${dzis.length})</button>` : "";
+    if ($("todayBtn")) $("todayBtn").onclick = () => wejdzWybor(dzis.slice(0, 6).map(s => s.id));
     for (const s of sny.slice(0, 5)) $("recentList").appendChild(await dreamCard(s));
     // przypomnienie o kopii
     const last = LS.get("lastBackup", 0), days = (Date.now() - last) / 864e5, co = Number(LS.get("backupFreq", 7));
@@ -604,13 +637,18 @@
   async function dreamCard(s) {
     const recs = await recsOf(s.id);
     const el = document.createElement("button");
-    el.className = "card dream";
+    el.className = "card dream" + (trybWyboru && wybor.has(s.id) ? " sel" : "");
     const preview = (s.notes[0] && s.notes[0].text) || "";
-    el.innerHTML = `<div class="row between"><span class="t">${esc(s.title)}</span><span class="d">${fmtShort(s.created)}</span></div>
+    el.innerHTML = `<div class="row between"><span class="row"><span class="chk">${wybor.has(s.id) ? "✓" : ""}</span><span class="t">${esc(s.title)}</span></span><span class="d">${fmtShort(s.created)}</span></div>
       <div class="d">${recs.length ? "🎙️ " + recs.length + " nagr." : ""} ${s.notes.length ? "✍️ " + s.notes.length + " notat." : ""}</div>
       ${preview ? `<div class="muted small" style="margin-top:4px">${esc(preview.slice(0, 90))}${preview.length > 90 ? "…" : ""}</div>` : ""}
       ${s.tags.length ? `<div class="tags">${s.tags.map(t => `<span class="tag">${esc(t)}</span>`).join("")}</div>` : ""}`;
-    el.onclick = () => openDream(s.id);
+    el.onclick = () => {
+      if (!trybWyboru) return openDream(s.id);
+      if (wybor.has(s.id)) wybor.delete(s.id); else if (wybor.size >= 6) return toast("Naraz maksymalnie 6 snów."); else wybor.add(s.id);
+      el.classList.toggle("sel", wybor.has(s.id)); el.querySelector(".chk").textContent = wybor.has(s.id) ? "✓" : "";
+      odswiezPasek();
+    };
     return el;
   }
 
@@ -623,6 +661,9 @@
     return Object.entries(cnt).sort((a, b) => b[1] - a[1]);
   }
   async function renderList() {
+    $("v-list").classList.toggle("wybor", trybWyboru);
+    $("selStart").hidden = trybWyboru;
+    odswiezPasek();
     const q = $("search").value.trim().toLowerCase();
     let sny = (await dbAll("sny")).sort((a, b) => b.created - a.created);
     $("dreamCount").textContent = `${sny.length} ${sny.length === 1 ? "sen" : "snów"}`;
@@ -643,7 +684,7 @@
   let openId = null, backTo = "home";
   const urls = [];
   async function openDream(id) {
-    if (current !== "dream") backTo = current === "list" ? "list" : "home";
+    if (current !== "dream") backTo = current === "list" || current === "group" ? "list" : "home";
     openId = id;
     const s = await dbGet("sny", id); if (!s) return show(backTo);
     document.querySelectorAll(".view").forEach(v => v.classList.toggle("on", v.id === "v-dream"));
@@ -682,6 +723,10 @@
     });
     renderTags(s);
     renderAI(s.ai);
+    if (s.aiGrupa) {
+      const g = s.aiGrupa, inne = g.sny.filter(x => x.id !== s.id).map(x => esc(x.tytul)).join(", ");
+      $("aiOut").insertAdjacentHTML("beforeend", `<div class="ai-sec" style="border-top:1px solid var(--border);padding-top:12px"><h4>Wspólna analiza${inne ? " z: " + inne : ""}</h4></div>` + htmlWspolne(g));
+    }
     $("tabs").classList.remove("hide");
   }
   async function saveField(fn) { const s = await dbGet("sny", openId); if (!s) return; fn(s); s.updated = Date.now(); await dbPut("sny", s); }
@@ -793,37 +838,114 @@
     if ($("aiTitle")) $("aiTitle").onclick = async () => { await saveField(s => s.title = w.tytul); $("dTitle").value = w.tytul; toast("Tytuł ustawiony ✓"); };
     if ($("aiTags")) $("aiTags").onclick = async () => { for (const x of L(w.symbole)) await addTag(String(x.symbol || "")); toast("Symbole dodane ✓"); };
   }
+  const tekstSnu = s => s.notes.map(n => n.text).join("\n").trim();
+  function aiZgoda() {
+    if (LS.get("aiZgoda", false)) return true;
+    if (!confirm("Analiza AI wyśle treść wybranych snów (tekst, bez nagrań), krótkie opisy Twoich wcześniejszych snów, Twoje liczby z numerologii i, jeśli włączone, kontekst z Kronik Akaszy do serwera aplikacji i modelu AI (Anthropic Claude). Nie zapisujemy ich w żadnej bazie. Kontynuować?")) return false;
+    LS.set("aiZgoda", true); return true;
+  }
+  async function aiPodstawa(pomin, notatkiAkaszy) {
+    const p = LS.get("profil", {}), y = new Date().getFullYear();
+    const poprzednie = (await dbAll("sny")).filter(x => !pomin.includes(x.id)).sort((a, b) => b.created - a.created).slice(0, 20)
+      .map(x => ({ data: fmtShort(x.created), tytul: x.title, symbole: x.tags, skrot: tekstSnu(x).slice(0, 220) }));
+    return {
+      urzadzenie: urzadzenie(), poprzednie,
+      profil: { droga_zycia: lifePath(p.data), rok_osobisty: personalYear(p.data, y) },
+      akasza: LS.get("akasza", false) ? [LS.get("akaszaCtx", ""), ...notatkiAkaszy].filter(Boolean).join("\n").slice(0, 4000) : ""
+    };
+  }
+  async function aiWyslij(body) {
+    const r = await fetch(AI_URL, { method: "POST", headers: { apikey: AI_KEY, "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok || !d.wynik) throw new Error(d.blad || "Analiza chwilowo niedostępna.");
+    return d.wynik;
+  }
   $("aiBtn").onclick = async () => {
     const s = await dbGet("sny", openId); if (!s) return;
-    const tekst = s.notes.map(n => n.text).join("\n").trim();
-    if (!tekst) { toast("AI analizuje tekst. Dopisz albo podyktuj sen (🎤 Mów, a ja zapiszę). Nagrań głosowych AI jeszcze nie słyszy."); return; }
+    if (!tekstSnu(s)) { toast("AI analizuje tekst. Dopisz albo podyktuj sen (🎤 Mów, a ja zapiszę). Nagrań głosowych AI jeszcze nie słyszy."); return; }
     if (!navigator.onLine) { toast("Analiza AI wymaga internetu."); return; }
-    if (!LS.get("aiZgoda", false)) {
-      if (!confirm("Analiza AI wyśle treść tego snu (tekst, bez nagrań), krótkie opisy Twoich wcześniejszych snów, Twoje liczby z numerologii i, jeśli włączone, kontekst z Kronik Akaszy do serwera aplikacji i modelu AI (Anthropic Claude). Nie zapisujemy ich w żadnej bazie. Kontynuować?")) return;
-      LS.set("aiZgoda", true);
-    }
-    const p = LS.get("profil", {}), y = new Date().getFullYear();
-    const inne = (await dbAll("sny")).filter(x => x.id !== s.id).sort((a, b) => b.created - a.created).slice(0, 20)
-      .map(x => ({ data: fmtShort(x.created), tytul: x.title, symbole: x.tags, skrot: (x.notes.map(n => n.text).join(" ")).slice(0, 220) }));
-    const akaszaOn = LS.get("akasza", false);
-    const body = {
-      urzadzenie: urzadzenie(),
-      sen: { data: fmtShort(s.created), tytul: s.title, notatki: s.notes.map(n => n.text), symbole: s.tags },
-      poprzednie: inne,
-      profil: { droga_zycia: lifePath(p.data), rok_osobisty: personalYear(p.data, y) },
-      akasza: akaszaOn ? [LS.get("akaszaCtx", ""), s.akasza ? "Notatka do tego snu: " + s.akasza : ""].filter(Boolean).join("\n").slice(0, 4000) : ""
-    };
+    if (!aiZgoda()) return;
+    const body = { ...(await aiPodstawa([s.id], s.akasza ? ["Notatka do tego snu: " + s.akasza] : [])),
+      sen: { data: fmtShort(s.created), tytul: s.title, notatki: s.notes.map(n => n.text), symbole: s.tags } };
     const btn = $("aiBtn"); btn.disabled = true; btn.innerHTML = `<span class="spin"></span> Analizuję sen…`;
     try {
-      const r = await fetch(AI_URL, { method: "POST", headers: { apikey: AI_KEY, "Content-Type": "application/json" }, body: JSON.stringify(body) });
-      const d = await r.json().catch(() => ({}));
-      if (!r.ok || !d.wynik) throw new Error(d.blad || "Analiza chwilowo niedostępna.");
-      const ai = { t: Date.now(), wynik: d.wynik };
+      const ai = { t: Date.now(), wynik: await aiWyslij(body) };
       await saveField(x => x.ai = ai);
       renderAI(ai); toast("Gotowe ✨");
     } catch (e) { toast(e.message || "Analiza chwilowo niedostępna."); renderAI((await dbGet("sny", openId)).ai); }
     btn.disabled = false;
   };
+
+  /* ---------- Wspólna analiza kilku snów (1 zapytanie) ---------- */
+  let trybWyboru = false, wybor = new Set();
+  function wejdzWybor(ids) { show("list"); trybWyboru = true; wybor = new Set(ids || []); renderList(); }
+  function odswiezPasek() {
+    $("selBar").hidden = !(trybWyboru && current === "list");
+    $("selCount").textContent = wybor.size ? `Zaznaczone: ${wybor.size}` : "Zaznacz sny (max 6)";
+    $("selGo").disabled = !wybor.size;
+  }
+  $("selStart").onclick = () => { trybWyboru = true; wybor = new Set(); renderList(); };
+  $("selCancel").onclick = () => { trybWyboru = false; wybor.clear(); renderList(); };
+  $("selToday").onclick = async () => {
+    wybor = new Set((await dbAll("sny")).filter(s => dzisKlucz(new Date(s.created)) === dzisKlucz()).sort((a, b) => b.created - a.created).slice(0, 6).map(s => s.id));
+    if (!wybor.size) toast("Dziś nie ma jeszcze snów."); renderList();
+  };
+  $("selGo").onclick = async () => {
+    const wybrane = (await Promise.all([...wybor].map(id => dbGet("sny", id)))).filter(Boolean).sort((a, b) => a.created - b.created);
+    const zTekstem = wybrane.filter(tekstSnu);
+    if (!zTekstem.length) { toast("Zaznaczone sny nie mają tekstu. AI analizuje tylko tekst (podyktuj albo dopisz sen)."); return; }
+    if (!navigator.onLine) { toast("Analiza AI wymaga internetu."); return; }
+    if (!aiZgoda()) return;
+    const body = { ...(await aiPodstawa(zTekstem.map(s => s.id), zTekstem.filter(s => s.akasza).map(s => `Notatka do snu „${s.title}”: ${s.akasza}`))),
+      sny: zTekstem.map(s => ({ id: s.id, data: fmtShort(s.created) + ", " + fmtTime(s.created), tytul: s.title, notatki: s.notes.map(n => n.text), symbole: s.tags })) };
+    const btn = $("selGo"); btn.disabled = true; btn.innerHTML = `<span class="spin"></span>`;
+    $("selCount").textContent = `Analizuję ${zTekstem.length} ${zTekstem.length === 1 ? "sen" : "sny"}… (do minuty)`;
+    try {
+      const w = await aiWyslij(body), t = Date.now();
+      const tytulAI = id => ((w.sny || []).find(r => r.id === id) || {}).tytul;
+      const grupa = { t, wspolne: w.wspolne || {}, sny: zTekstem.map(s => ({ id: s.id, tytul: tytulAI(s.id) || s.title })) };
+      for (const r of (w.sny || [])) {
+        const s = zTekstem.find(x => x.id === r.id) || zTekstem[(w.sny || []).indexOf(r)];
+        if (!s) continue;
+        const { id, ...wynik } = r;
+        s.ai = { t, wynik }; s.aiGrupa = grupa; s.updated = t; await dbPut("sny", s);
+      }
+      LS.set("ostatniaGrupa", grupa);
+      trybWyboru = false; wybor.clear();
+      pokazGrupe(grupa, zTekstem.length < wybrane.length ? wybrane.length - zTekstem.length : 0);
+      toast("Gotowe ✨");
+    } catch (e) { toast(e.message || "Analiza chwilowo niedostępna."); odswiezPasek(); }
+    btn.disabled = false; btn.textContent = "✨ Analizuj";
+  };
+  function htmlWspolne(g) {
+    const w = g.wspolne || {}, L = a => Array.isArray(a) ? a : [];
+    const sek = (tyt, html) => html ? `<div class="ai-sec"><h4>${tyt}</h4>${html}</div>` : "";
+    return sek("Co łączy te sny", w.podsumowanie ? `<p>${esc(w.podsumowanie)}</p>` : "") +
+      sek("Wspólne motywy", L(w.wspolne_motywy).length ? `<div class="tags">${L(w.wspolne_motywy).map(m => `<span class="tag big">${esc(m)}</span>`).join("")}</div>` : "") +
+      sek("Możliwe znaczenie całości", L(w.interpretacje).length ? `<ul>${L(w.interpretacje).map(i => `<li><span class="ujecie">${esc(i.ujecie)}</span>${esc(i.tresc)}</li>`).join("")}</ul>` : "") +
+      sek("Powiązania z wcześniejszymi snami", L(w.powiazania).length ? `<ul>${L(w.powiazania).map(p => `<li><b>${esc(p.data)}</b>: ${esc(p.co)}</li>`).join("")}</ul>` : "") +
+      sek("Twój kontekst duchowy", w.kontekst_osobisty ? `<p>${esc(w.kontekst_osobisty)}</p>` : "") +
+      sek("Pytania do refleksji", L(w.pytania).length ? `<ul>${L(w.pytania).map(q => `<li>${esc(q)}</li>`).join("")}</ul>` : "") +
+      (w.wsparcie ? `<div class="banner" style="margin-top:14px">💜 <span>${esc(w.wsparcie)}</span></div>` : "");
+  }
+  async function pokazGrupe(g, pominiete) {
+    document.querySelectorAll(".view").forEach(v => v.classList.toggle("on", v.id === "v-group"));
+    current = "group"; window.scrollTo(0, 0); $("selBar").hidden = true;
+    $("grpInfo").textContent = `${g.sny.length} ${g.sny.length === 1 ? "sen" : "sny"} w jednej analizie, ${fmtShort(g.t)}, ${fmtTime(g.t)}.` + (pominiete ? ` Pominięto ${pominiete} bez tekstu.` : "");
+    let html = `<div class="card ai-card">${htmlWspolne(g)}<p class="ai-note">To propozycje do refleksji, nie wyrocznia.</p></div><h2 style="margin-top:18px">Każdy sen osobno</h2>`;
+    $("grpOut").innerHTML = html;
+    for (const x of g.sny) {
+      const s = await dbGet("sny", x.id); if (!s) continue;
+      const w = (s.ai && s.ai.wynik) || {};
+      const el = document.createElement("button"); el.className = "card dream";
+      el.innerHTML = `<div class="row between"><span class="t">${esc(w.tytul || s.title)}</span><span class="d">${fmtShort(s.created)}</span></div>
+        <div class="muted small" style="margin-top:4px">${esc((w.opis || "").slice(0, 160))}${(w.opis || "").length > 160 ? "…" : ""}</div>
+        <div class="small" style="margin-top:6px;color:#c4b5fd">Zobacz symbole i znaczenia ›</div>`;
+      el.onclick = () => { backTo = "list"; openDream(s.id); };
+      $("grpOut").appendChild(el);
+    }
+  }
+  $("grpBack").onclick = () => show("list");
 
   /* =====================================================
      NUMEROLOGIA
