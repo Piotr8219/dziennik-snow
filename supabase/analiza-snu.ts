@@ -59,10 +59,14 @@ Deno.serve(async (req) => {
     if (wejscie.length > 15000) return new Response(JSON.stringify({ blad: "Sen jest za długi do analizy." }), { status: 400, headers: h });
 
     // Limit użycia (chroni przed nadużyciem i kosztami)
-    const sbUrl = Deno.env.get("SUPABASE_URL")!, sbKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const sbUrl = Deno.env.get("SUPABASE_URL")!;
+    let sbKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+    if (!sbKey) { try { const k = JSON.parse(Deno.env.get("SUPABASE_SECRET_KEYS") || "{}"); sbKey = k.default || Object.values(k)[0] || ""; } catch { /* brak */ } }
+    const sbH: Record<string, string> = { apikey: sbKey, "Content-Type": "application/json" };
+    if (sbKey.startsWith("eyJ")) sbH.Authorization = `Bearer ${sbKey}`;
     const lim = await fetch(`${sbUrl}/rest/v1/rpc/ai_zuzyj`, {
       method: "POST",
-      headers: { apikey: sbKey, Authorization: `Bearer ${sbKey}`, "Content-Type": "application/json" },
+      headers: sbH,
       body: JSON.stringify({ p_urz: urz, p_limit_urz: LIMIT_URZADZENIE, p_limit_dzien: LIMIT_DZIENNY }),
     });
     if (!lim.ok || (await lim.json()) !== true) {
@@ -78,7 +82,7 @@ Deno.serve(async (req) => {
       },
       body: JSON.stringify({
         model: MODEL,
-        max_tokens: 2000,
+        max_tokens: 3000,
         system: SYSTEM,
         messages: [{ role: "user", content: "Dane do analizy (JSON):\n" + wejscie }],
       }),
