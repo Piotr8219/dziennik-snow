@@ -81,6 +81,8 @@
     .tag { font-size: .74rem; padding: 3px 9px; border-radius: 8px; background: rgba(99,102,241,.2); color: #c7d2fe; border: none; font-family: inherit; }
     .tag.x { cursor: pointer; }
     .tag.big { font-size: .85rem; padding: 6px 12px; }
+    .day-sep { display: flex; align-items: center; gap: 10px; margin: 18px 0 10px; font-size: .78rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: #c4b5fd; }
+    .day-sep::after { content: ""; flex: 1; height: 1px; background: linear-gradient(90deg, rgba(168,85,247,.5), transparent); }
     .empty { text-align: center; color: var(--muted); padding: 34px 10px; border: 1px dashed var(--border); border-radius: 18px; }
 
     /* SZCZEGÓŁY */
@@ -332,7 +334,7 @@
         <p class="muted small" style="margin:4px 0 12px">Kasuje sny, nagrania i profil z tego telefonu. Tego nie da się cofnąć.</p>
         <button class="btn danger full" id="wipeBtn">Usuń wszystko</button>
       </div>
-      <p class="muted small" style="text-align:center"><a href="./" style="color:var(--muted)">Strona Dziennika Snów</a> · wersja 1.8</p>
+      <p class="muted small" style="text-align:center"><a href="./" style="color:var(--muted)">Strona Dziennika Snów</a> · wersja 1.9</p>
     </section>
   </main>
 
@@ -643,7 +645,7 @@
     const dzis = sny.filter(s => dzisKlucz(new Date(s.created)) === dzisKlucz());
     $("todayAI").innerHTML = dzis.length ? `<button class="btn ghost full" id="todayBtn" style="margin-bottom:12px">✨ Podsumuj dzisiejsze sny (${dzis.length})</button>` : "";
     if ($("todayBtn")) $("todayBtn").onclick = () => wejdzWybor(dzis.slice(0, 6).map(s => s.id));
-    for (const s of sny.slice(0, 5)) $("recentList").appendChild(await dreamCard(s));
+    await listaZDatami($("recentList"), sny.slice(0, 5));
     // przypomnienie o kopii
     const last = LS.get("lastBackup", 0), days = (Date.now() - last) / 864e5, co = Number(LS.get("backupFreq", 7));
     const zmiany = sny.some(s => (s.updated || s.created) > last);
@@ -651,12 +653,27 @@
       ? `<div class="banner">💾 <span>${last ? "Masz nowe sny od ostatniej kopii." : "Nie masz jeszcze kopii snów."}</span><button class="btn" id="bnBackup">Zrób kopię</button></div>` : "";
     if ($("bnBackup")) $("bnBackup").onclick = exportData;
   }
+  function nazwaDnia(ts) {
+    const d = new Date(ts), k = dzisKlucz(d), wcz = new Date(); wcz.setDate(wcz.getDate() - 1);
+    const pelna = d.toLocaleDateString("pl-PL", { weekday: "long", day: "numeric", month: "long", year: d.getFullYear() === new Date().getFullYear() ? undefined : "numeric" });
+    if (k === dzisKlucz()) return "Dziś · " + pelna;
+    if (k === dzisKlucz(wcz)) return "Wczoraj · " + pelna;
+    return pelna;
+  }
+  async function listaZDatami(kontener, sny) {
+    let ostatni = null;
+    for (const s of sny) {
+      const k = dzisKlucz(new Date(s.created));
+      if (k !== ostatni) { ostatni = k; const h = document.createElement("div"); h.className = "day-sep"; h.textContent = nazwaDnia(s.created); kontener.appendChild(h); }
+      kontener.appendChild(await dreamCard(s));
+    }
+  }
   async function dreamCard(s) {
     const recs = await recsOf(s.id);
     const el = document.createElement("button");
     el.className = "card dream" + (trybWyboru && wybor.has(s.id) ? " sel" : "");
     const preview = (s.notes[0] && s.notes[0].text) || "";
-    el.innerHTML = `<div class="row between"><span class="row"><span class="chk">${wybor.has(s.id) ? "✓" : ""}</span><span class="t">${esc(s.title)}</span></span><span class="d">${fmtShort(s.created)}</span></div>
+    el.innerHTML = `<div class="row between"><span class="row"><span class="chk">${wybor.has(s.id) ? "✓" : ""}</span><span class="t">${esc(s.title)}</span></span><span class="d">${fmtTime(s.created)}</span></div>
       <div class="d">${recs.length ? "🎙️ " + recs.length + " nagr." : ""} ${s.notes.length ? "✍️ " + s.notes.length + " notat." : ""}</div>
       ${preview ? `<div class="muted small" style="margin-top:4px">${esc(preview.slice(0, 90))}${preview.length > 90 ? "…" : ""}</div>` : ""}
       ${s.tags.length ? `<div class="tags">${s.tags.map(t => `<span class="tag">${esc(t)}</span>`).join("")}</div>` : ""}`;
@@ -721,7 +738,7 @@
     $("topTags").querySelectorAll("[data-t]").forEach(b => b.onclick = () => { $("search").value = b.dataset.t; renderList(); });
     if (q) sny = sny.filter(s => (s.title + " " + s.tags.join(" ") + " " + s.notes.map(n => n.text).join(" ")).toLowerCase().includes(q));
     $("allList").innerHTML = sny.length ? "" : `<div class="empty">${q ? "Nic nie znaleziono." : "Nie masz jeszcze zapisanych snów."}</div>`;
-    for (const s of sny) $("allList").appendChild(await dreamCard(s));
+    await listaZDatami($("allList"), sny);
   }
   $("search").oninput = () => { clearTimeout($("search")._h); $("search")._h = setTimeout(renderList, 200); };
 
