@@ -283,7 +283,7 @@
         <p class="muted small" style="margin:4px 0 12px">Kasuje sny, nagrania i profil z tego telefonu. Tego nie da się cofnąć.</p>
         <button class="btn danger full" id="wipeBtn">Usuń wszystko</button>
       </div>
-      <p class="muted small" style="text-align:center"><a href="./" style="color:var(--muted)">Strona Dziennika Snów</a> · wersja 1.1</p>
+      <p class="muted small" style="text-align:center"><a href="./" style="color:var(--muted)">Strona Dziennika Snów</a> · wersja 1.2</p>
     </section>
   </main>
 
@@ -363,7 +363,7 @@
   }
   function personalYear(iso, year) {
     const [, m, d] = iso.split("-").map(Number);
-    return reduce(reduce(d) + reduce(m) + reduce(year), [11, 22]);
+    return reduce(reduce(d) + reduce(m) + reduce(year));   // Rok Osobisty zawsze do jednej cyfry (11 → 2)
   }
   const LP_TXT = {
     1: "Przywódca i pionier. Niezależność, odwaga i wytyczanie własnych ścieżek.",
@@ -460,7 +460,7 @@
     $("bdayTitle").textContent = `Sto lat, ${p.imie}!`;
     $("bdayText").textContent = wybierzZyczenie(p.imie, dzis.getFullYear());
     const py = personalYear(p.data, dzis.getFullYear());
-    $("bdayYear").textContent = `Twój Rok Osobisty: ${py}${[11, 22].includes(py) ? " (liczba mistrzowska)" : ""}`;
+    $("bdayYear").textContent = `Twój Rok Osobisty: ${py}`;
     $("bday").hidden = false;
     for (let i = 0; i < 40; i++) {
       const c = document.createElement("div"); c.className = "confetti";
@@ -734,8 +734,8 @@
     const lp = lifePath(p.data), py = personalYear(p.data, y), ny = personalYear(p.data, y + 1);
     const master = n => [11, 22, 33].includes(n) ? "✦ Liczba mistrzowska" : "";
     $("lpNum").textContent = lp; $("lpMaster").textContent = master(lp); $("lpText").textContent = LP_TXT[lp];
-    $("pyNum").textContent = py; $("pyMaster").textContent = master(py); $("pyTitle").textContent = `Rok Osobisty ${y}`; $("pyText").textContent = PY_TXT[py];
-    $("nyNum").textContent = ny; $("nyMaster").textContent = master(ny); $("nyTitle").textContent = `Rok Osobisty ${y + 1}`; $("nyText").textContent = PY_TXT[ny];
+    $("pyNum").textContent = py; $("pyMaster").textContent = ""; $("pyTitle").textContent = `Rok Osobisty ${y}`; $("pyText").textContent = PY_TXT[py];
+    $("nyNum").textContent = ny; $("nyMaster").textContent = ""; $("nyTitle").textContent = `Rok Osobisty ${y + 1}`; $("nyText").textContent = PY_TXT[ny];
     $("numBirth").textContent = new Date(p.data + "T12:00").toLocaleDateString("pl-PL", { day: "numeric", month: "long", year: "numeric" });
     $("akaszaCard").hidden = !LS.get("akasza", false);
     $("akaszaCtx").value = LS.get("akaszaCtx", "");
