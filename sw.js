@@ -1,6 +1,6 @@
 // Dziennik Snów — service worker (działanie offline)
-const CACHE = "ds-v1";
-const PLIKI = ["./", "./index.html", "./manifest.json", "./icon-192.png", "./icon-512.png", "./apple-touch-icon.png"];
+const CACHE = "ds-v2";
+const PLIKI = ["./", "./index.html", "./app.html", "./manifest.json", "./icon-192.png", "./icon-512.png", "./apple-touch-icon.png"];
 
 self.addEventListener("install", e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(PLIKI)).then(() => self.skipWaiting()));
@@ -20,6 +20,6 @@ self.addEventListener("fetch", e => {
       const kopia = res.clone();
       caches.open(CACHE).then(c => c.put(req, kopia));
       return res;
-    }).catch(() => caches.match(req).then(r => r || caches.match("./index.html")))
+    }).catch(() => caches.match(req).then(r => r || caches.match(new URL(req.url).pathname.endsWith("app.html") ? "./app.html" : "./index.html")))
   );
 });

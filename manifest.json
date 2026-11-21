@@ -1,9 +1,10 @@
 {
+  "id": "./",
   "name": "Dziennik Snów",
   "short_name": "Dziennik Snów",
   "description": "Prywatny dziennik snów. Nagraj sen głosem zaraz po przebudzeniu.",
   "lang": "pl",
-  "start_url": "./",
+  "start_url": "./app.html",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
