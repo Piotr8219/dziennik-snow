@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <meta name="theme-color" content="#060913" />
+  <link rel="icon" type="image/png" href="icon-192.png" />
+  <title>Statystyki · Dziennik Snów</title>
+  <style>
+    :root { --bg: #060913; --card: rgba(255,255,255,.05); --border: rgba(255,255,255,.1); --text: #f3f4f6; --muted: #9ca3af; --purple: #a855f7; --amber: #f59e0b; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: radial-gradient(circle at 50% 0%, #1b1640, var(--bg) 60%) fixed; color: var(--text); min-height: 100vh; }
+    main { max-width: 760px; margin: 0 auto; padding: 22px 16px 60px; }
+    h1 { font-size: 1.5rem; } h2 { font-size: 1rem; margin-bottom: 10px; }
+    .muted { color: var(--muted); } .small { font-size: .82rem; }
+    .top { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+    select, button { padding: 9px 12px; border-radius: 10px; border: 1px solid var(--border); background: rgba(255,255,255,.06); color: #fff; font-size: .9rem; cursor: pointer; }
+    .liczby { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 14px; }
+    .karta { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 14px; }
+    .liczba { font-size: 1.9rem; font-weight: 800; }
+    .liczba small { font-size: .85rem; color: var(--muted); font-weight: 500; margin-left: 4px; }
+    .wykres { display: flex; align-items: flex-end; gap: 3px; height: 140px; padding-top: 10px; }
+    .slupek { flex: 1; min-width: 4px; border-radius: 4px 4px 0 0; background: linear-gradient(#a855f7, #6366f1); position: relative; }
+    .slupek:hover::after { content: attr(data-t); position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); white-space: nowrap; font-size: .7rem; background: #1f2547; padding: 3px 6px; border-radius: 6px; }
+    .osie { display: flex; justify-content: space-between; font-size: .7rem; color: var(--muted); margin-top: 4px; }
+    .siatka { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; margin: 14px 0; }
+    .wiersz { display: flex; justify-content: space-between; gap: 8px; font-size: .88rem; padding: 5px 0; position: relative; }
+    .wiersz .pasek { position: absolute; left: 0; bottom: 0; height: 2px; background: var(--purple); opacity: .7; border-radius: 2px; }
+    table { width: 100%; border-collapse: collapse; font-size: .82rem; }
+    td, th { text-align: left; padding: 7px 6px; border-bottom: 1px solid var(--border); }
+    th { color: var(--muted); font-weight: 600; }
+    .tag { font-size: .7rem; padding: 1px 6px; border-radius: 6px; background: rgba(245,158,11,.15); color: #fcd34d; }
+    .stopka { margin-top: 18px; display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; align-items: center; }
+    .tabela { overflow-x: auto; }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="top">
+      <div><h1>📊 Statystyki odwiedzin</h1><p class="muted small">Dziennik Snów · dzienniksnow.pl</p></div>
+      <div>
+        <select id="okres">
+          <option value="7">Ostatnie 7 dni</option>
+          <option value="30" selected>Ostatnie 30 dni</option>
+          <option value="90">Ostatnie 90 dni</option>
+          <option value="365">Ostatni rok</option>
+        </select>
+        <button id="odswiez">↻</button>
+      </div>
+    </div>
+
+    <div class="liczby">
+      <div class="karta"><div class="muted small">Dziś</div><div class="liczba" id="dzis">…</div></div>
+      <div class="karta"><div class="muted small">W wybranym okresie</div><div class="liczba" id="okresL">…</div></div>
+      <div class="karta"><div class="muted small">Nowe osoby w okresie</div><div class="liczba" id="nowi">…</div></div>
+      <div class="karta"><div class="muted small">Z zainstalowanej aplikacji</div><div class="liczba" id="inst">…</div></div>
+    </div>
+
+    <div class="karta">
+      <h2>Odwiedziny dzień po dniu</h2>
+      <div class="wykres" id="wykres"></div>
+      <div class="osie"><span id="osOd"></span><span id="osDo"></span></div>
+    </div>
+
+    <div class="siatka">
+      <div class="karta"><h2>🔗 Skąd przyszli</h2><div id="zrodla"></div></div>
+      <div class="karta"><h2>🌍 Region (strefa czasowa)</h2><div id="regiony"></div></div>
+      <div class="karta"><h2>📱 Urządzenia</h2><div id="urzadzenia"></div></div>
+      <div class="karta"><h2>📄 Strony</h2><div id="strony"></div></div>
+    </div>
+
+    <div class="karta">
+      <h2>🕒 Ostatnie odwiedziny</h2>
+      <div class="tabela"><table><thead><tr><th>Kiedy</th><th>Strona</th><th>Skąd</th><th>Urządzenie</th><th>Region</th></tr></thead><tbody id="ostatnie"></tbody></table></div>
+    </div>
+
+    <div class="stopka">
+      <p class="muted small">Wszystkie odwiedziny: <b id="wszystko">…</b>. Anonimowo: bez adresów IP i bez ciasteczek, więc widać region, nie konkretną osobę.</p>
+      <button id="jaBtn"></button>
+    </div>
+  </main>
+  <script>
+    const URL_ = "https://qtbjrwcwatxgsuwaxklf.supabase.co/rest/v1/rpc/statystyki";
+    const KEY = "sb_publishable_AY0XDT4l0agvrRNAkUfjAg_65SUa3zf";
+    const $ = id => document.getElementById(id);
+    const esc = t => String(t ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+    const liczba = (w, o) => `${w}<small>wizyt</small> · ${o}<small>${o === 1 ? "osoba" : "osób"}</small>`;
+    function lista(el, dane) {
+      const max = Math.max(1, ...dane.map(d => d.ile));
+      $(el).innerHTML = dane.length ? dane.map(d => `<div class="wiersz"><span>${esc(d.nazwa)}</span><b>${d.ile}</b><span class="pasek" style="width:${d.ile / max * 100}%"></span></div>`).join("")
+        : `<p class="muted small">Brak danych</p>`;
+    }
+    async function wczytaj() {
+      const dni = Number($("okres").value);
+      try {
+        const r = await fetch(URL_, { method: "POST", headers: { apikey: KEY, "Content-Type": "application/json" }, body: JSON.stringify({ p_dni: dni }) });
+        const s = await r.json();
+        $("dzis").innerHTML = liczba(s.dzis.wizyty, s.dzis.osoby);
+        $("okresL").innerHTML = liczba(s.okres.wizyty, s.okres.osoby);
+        $("nowi").innerHTML = `${s.okres.nowi}<small>osób</small>`;
+        $("inst").innerHTML = `${s.instalacje}<small>osób</small>`;
+        $("wszystko").textContent = `${s.wszystko.wizyty} (${s.wszystko.osoby} osób)`;
+        // wykres: każdy dzień okresu, także te bez wizyt
+        const mapa = Object.fromEntries((s.dni || []).map(d => [d.dzien, d]));
+        const dniLista = [];
+        for (let i = Math.min(dni, 90) - 1; i >= 0; i--) { const d = new Date(); d.setDate(d.getDate() - i); const k = d.toLocaleDateString("sv-SE"); dniLista.push({ k, w: (mapa[k] || {}).wizyty || 0, o: (mapa[k] || {}).osoby || 0 }); }
+        const max = Math.max(1, ...dniLista.map(d => d.w));
+        $("wykres").innerHTML = dniLista.map(d => `<div class="slupek" style="height:${Math.max(2, d.w / max * 100)}%" data-t="${d.k}: ${d.w} wizyt, ${d.o} os."></div>`).join("");
+        $("osOd").textContent = dniLista[0].k; $("osDo").textContent = "dziś";
+        lista("zrodla", s.zrodla); lista("regiony", s.regiony); lista("urzadzenia", s.urzadzenia); lista("strony", s.strony);
+        $("ostatnie").innerHTML = (s.ostatnie || []).map(w => `<tr>
+          <td>${new Date(w.czas).toLocaleString("pl-PL", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</td>
+          <td>${esc(w.strona)} ${w.nowy ? '<span class="tag">nowy</span>' : ""}</td>
+          <td>${esc(w.zrodlo)}</td><td>${esc(w.urzadzenie)} · ${esc(w.przegladarka)}${w.zainstalowana ? " 🌙" : ""}</td><td>${esc(w.region)}</td></tr>`).join("")
+          || `<tr><td colspan="5" class="muted">Jeszcze nikt nie odwiedził strony.</td></tr>`;
+      } catch (e) { $("dzis").textContent = "Błąd wczytywania"; }
+    }
+    function ja() {
+      const wyl = localStorage.getItem("ds_bezstat") === "1";
+      $("jaBtn").textContent = wyl ? "✅ Twoje wizyty nie są liczone (kliknij, aby liczyć)" : "🙈 Nie licz moich wizyt na tym telefonie";
+    }
+    $("jaBtn").onclick = () => { localStorage.setItem("ds_bezstat", localStorage.getItem("ds_bezstat") === "1" ? "0" : "1"); ja(); };
+    $("okres").onchange = wczytaj; $("odswiez").onclick = wczytaj;
+    ja(); wczytaj(); setInterval(wczytaj, 60000);
+  </script>
+</body>
+</html>
