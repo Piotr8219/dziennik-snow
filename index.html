@@ -501,11 +501,47 @@
     .modal-box .btn-primary { width: 100%; justify-content: center; border: none; cursor: pointer; }
     .rv-msg { font-size: .88rem; margin-top: 10px; min-height: 1.2em; text-align: center; }
     .hp { position: absolute; left: -9999px; width: 1px; height: 1px; }
+
+    /* KREATOR INSTALACJI */
+    .inst { position: fixed; inset: 0; z-index: 100; display: grid; place-items: end center; background: rgba(3,5,12,.78); backdrop-filter: blur(6px); }
+    .inst[hidden] { display: none; }
+    .inst-box { width: 100%; max-width: 480px; background: #120f2c; border: 1px solid rgba(168,85,247,.45); border-bottom: none; border-radius: 24px 24px 0 0; padding: 24px 22px 30px; box-shadow: 0 -10px 50px rgba(99,102,241,.3); animation: instUp .3s ease; max-height: 90vh; overflow: auto; }
+    @media (min-width: 700px) { .inst { place-items: center; } .inst-box { border-radius: 24px; border-bottom: 1px solid rgba(168,85,247,.45); } }
+    @keyframes instUp { from { transform: translateY(40px); opacity: 0; } to { transform: none; opacity: 1; } }
+    .inst-head { display: flex; align-items: center; gap: 14px; margin-bottom: 16px; }
+    .inst-head img { width: 56px; height: 56px; border-radius: 14px; }
+    .inst-head h3 { font-size: 1.2rem; } .inst-head p { color: var(--text-muted); font-size: .85rem; }
+    .inst-x { margin-left: auto; background: none; border: none; color: var(--text-muted); font-size: 1.8rem; cursor: pointer; align-self: flex-start; }
+    .krok { display: flex; gap: 12px; align-items: flex-start; padding: 12px; border-radius: 14px; background: rgba(255,255,255,.04); border: 1px solid var(--card-border); margin-bottom: 10px; font-size: .95rem; }
+    .krok .n { flex: 0 0 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; font-size: .85rem; background: linear-gradient(135deg,#8b5cf6,#d97706); }
+    .krok b { color: #fff; } .krok .ico { display: inline-block; vertical-align: middle; padding: 1px 7px; border-radius: 6px; background: rgba(255,255,255,.1); font-weight: 700; }
+    .inst .btn-primary, .inst .btn-secondary { width: 100%; justify-content: center; border: none; cursor: pointer; margin-top: 6px; }
+    .inst-note { font-size: .8rem; color: var(--text-muted); margin-top: 12px; text-align: center; }
+    .inst-tabs { display: flex; gap: 8px; margin: 4px 0 14px; }
+    .inst-tabs button { flex: 1; padding: 8px; border-radius: 10px; border: 1px solid var(--card-border); background: rgba(255,255,255,.04); color: var(--text-muted); font-weight: 600; cursor: pointer; font-size: .85rem; }
+    .inst-tabs button.on { color: #fff; border-color: rgba(168,85,247,.6); background: rgba(168,85,247,.15); }
   </style>
 </head>
 <body>
 
   <canvas id="skyCanvas"></canvas>
+  <!-- KREATOR INSTALACJI -->
+  <div class="inst" id="inst" hidden>
+    <div class="inst-box" role="dialog" aria-modal="true" aria-labelledby="instTytul">
+      <div class="inst-head">
+        <img src="icon-192.png" alt="" />
+        <div><h3 id="instTytul">Zainstaluj Dziennik Snów</h3><p>Za darmo · bez sklepu · 10 sekund</p></div>
+        <button class="inst-x" id="instX" aria-label="Zamknij">×</button>
+      </div>
+      <div class="inst-tabs" id="instTabs">
+        <button data-p="android">🤖 Android</button>
+        <button data-p="ios">🍎 iPhone</button>
+        <button data-p="desktop">💻 Komputer</button>
+      </div>
+      <div id="instTresc"></div>
+    </div>
+  </div>
+
 
   <div class="wrapper">
     <!-- GÓRNA NAWIGACJA -->
@@ -629,7 +665,7 @@
     <section id="pobierz" class="install">
       <h2 class="section-heading">Zainstaluj w 10 sekund</h2>
       <p class="section-desc">Instalujesz prosto z przeglądarki, bez sklepu. Na ekranie głównym pojawi się ikona jak w zwykłej aplikacji.</p>
-      <div style="text-align:center;margin-bottom:22px"><button id="installBtn" class="btn-primary" type="button" style="display:none;border:none;cursor:pointer">⬇ Zainstaluj teraz</button></div>
+      <div style="text-align:center;margin-bottom:22px"><button id="installBtn" class="btn-primary" type="button" style="border:none;cursor:pointer">⬇ Zainstaluj teraz</button></div>
       <div class="install-grid">
         <div class="install-card" id="ios">
           <h3>🍎 iPhone (Safari)</h3>
@@ -860,23 +896,82 @@
     wczytaj();
     setInterval(wczytaj, 60000);   // co minutę sprawdza, czy ktoś dodał nową opinię
   </script>
-  <!-- PWA: instalacja i tryb offline -->
+  <!-- PWA: instalacja (kreator) i tryb offline -->
   <script>
     if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
     if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
-    let instalacja = null;
-    const instBtn = document.getElementById("installBtn");
-    window.addEventListener("beforeinstallprompt", e => {
-      e.preventDefault(); instalacja = e; instBtn.style.display = "inline-flex";
-    });
-    instBtn.addEventListener("click", async () => {
-      if (!instalacja) return;
-      instalacja.prompt(); await instalacja.userChoice; instalacja = null; instBtn.style.display = "none";
-    });
-    // Główny przycisk "Pobierz aplikację": na Androidzie od razu otwiera instalację
-    document.querySelectorAll('a[href="#pobierz"].btn-primary').forEach(a => a.addEventListener("click", e => {
-      if (instalacja) { e.preventDefault(); instBtn.click(); }
-    }));
+    const ua = navigator.userAgent;
+    const jestIOS = /iPhone|iPad|iPod/i.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+    const jestAndroid = /Android/i.test(ua);
+    const samsungNet = /SamsungBrowser/i.test(ua);
+    const wAplikacji = /FBAN|FBAV|Instagram|Line\/|Messenger|WhatsApp|; wv\)/i.test(ua);
+    const safariIOS = jestIOS && /Safari/i.test(ua) && !/CriOS|FxiOS|EdgiOS|OPiOS/i.test(ua);
+    let instalacja = null, platforma = jestIOS ? "ios" : jestAndroid ? "android" : "desktop";
+    const inst = document.getElementById("inst"), tresc = document.getElementById("instTresc");
+    const LINK = location.origin + "/";
+    window.addEventListener("beforeinstallprompt", e => { e.preventDefault(); instalacja = e; if (!inst.hidden) rysuj(); });
+    window.addEventListener("appinstalled", () => { instalacja = null; pokazGotowe(); });
+
+    const krok = (n, html) => `<div class="krok"><span class="n">${n}</span><div>${html}</div></div>`;
+    const btnKopiuj = `<button class="btn-secondary" id="instKopiuj">📋 Skopiuj link</button>`;
+    function rysuj() {
+      document.querySelectorAll("#instTabs button").forEach(b => b.classList.toggle("on", b.dataset.p === platforma));
+      let h = "";
+      if (wAplikacji && platforma !== "desktop") {
+        h = `<p style="margin-bottom:12px">Otworzyłeś stronę wewnątrz innej aplikacji (np. WhatsApp albo Facebook). Instalacja działa tylko w zwykłej przeglądarce:</p>` +
+          krok(1, `Dotknij <span class="ico">⋮</span> albo <span class="ico">…</span> w rogu ekranu.`) +
+          krok(2, platforma === "ios" ? `Wybierz <b>„Otwórz w Safari”</b>.` : `Wybierz <b>„Otwórz w Chrome”</b> (lub „Otwórz w przeglądarce”).`) +
+          krok(3, `Kliknij tam ponownie <b>„Pobierz aplikację”</b>.`) + btnKopiuj;
+      } else if (platforma === "android") {
+        if (instalacja) {
+          h = `<p style="margin-bottom:14px">Wszystko gotowe. Jedno kliknięcie i ikona 🌙 pojawi się na ekranie głównym.</p>
+            <button class="btn-primary" id="instTeraz">⬇ Zainstaluj teraz</button>`;
+        } else if (samsungNet) {
+          h = krok(1, `Dotknij <span class="ico">☰</span> na dolnym pasku.`) +
+              krok(2, `Wybierz <b>„Dodaj stronę do”</b>, a potem <b>„Ekran startowy”</b>.`) +
+              krok(3, `Potwierdź <b>„Dodaj”</b>. Gotowe! 🌙`);
+        } else {
+          h = krok(1, `Dotknij <span class="ico">⋮</span> w prawym górnym rogu Chrome.`) +
+              krok(2, `Wybierz <b>„Zainstaluj aplikację”</b> albo <b>„Dodaj do ekranu głównego”</b>.`) +
+              krok(3, `Potwierdź <b>„Zainstaluj”</b>. Ikona 🌙 pojawi się na ekranie.`) +
+              `<a class="btn-secondary" href="app.html" style="text-decoration:none">Masz już aplikację? Otwórz ją ›</a>`;
+        }
+      } else if (platforma === "ios") {
+        h = (jestIOS && !safariIOS ? `<p style="margin-bottom:12px">Najpewniej działa w <b>Safari</b>. Skopiuj link i otwórz go w Safari (w nowszych iPhone'ach zadziała też przycisk Udostępnij w Chrome).</p>` : "") +
+          krok(1, `Dotknij <span class="ico">⬆︎</span> <b>Udostępnij</b> na dolnym pasku Safari (kwadrat ze strzałką).`) +
+          krok(2, `Przewiń w dół i wybierz <b>„Do ekranu początkowego”</b>.`) +
+          krok(3, `Dotknij <b>„Dodaj”</b> w prawym górnym rogu. Gotowe! 🌙`) +
+          (jestIOS && !safariIOS ? btnKopiuj : "");
+      } else {
+        h = `<p style="margin-bottom:12px">Dziennik Snów najlepiej działa na <b>telefonie</b>, bo sny nagrywa się zaraz po przebudzeniu.</p>` +
+          krok(1, `Otwórz <b>dzienniksnow.pl</b> na telefonie (możesz wysłać sobie link).`) +
+          krok(2, `Kliknij <b>„Pobierz aplikację”</b> i postępuj według wskazówek.`) +
+          (instalacja ? `<button class="btn-primary" id="instTeraz">💻 Zainstaluj też na komputerze</button>` : "") + btnKopiuj;
+      }
+      tresc.innerHTML = h + `<p class="inst-note">🔒 Bez rejestracji. Sny zapisują się na Twoim telefonie.</p>`;
+      const t = document.getElementById("instTeraz");
+      if (t) t.onclick = async () => { if (!instalacja) return; instalacja.prompt(); const w = await instalacja.userChoice; instalacja = null; if (w.outcome === "accepted") pokazGotowe(); else rysuj(); };
+      const k = document.getElementById("instKopiuj");
+      if (k) k.onclick = async () => { try { await navigator.clipboard.writeText(LINK); k.textContent = "✓ Skopiowano"; } catch (e) { k.textContent = LINK; } };
+    }
+    function pokazGotowe() {
+      inst.hidden = false;
+      document.querySelectorAll("#instTabs button").forEach(b => b.classList.remove("on"));
+      tresc.innerHTML = `<div style="text-align:center;padding:10px 0"><div style="font-size:3rem">🎉</div>
+        <h3 style="margin:8px 0">Zainstalowano!</h3><p style="color:var(--text-muted);margin-bottom:16px">Ikona 🌙 <b>Dziennik Snów</b> jest na ekranie głównym. Jutro rano otwórz ją i nagraj pierwszy sen.</p>
+        <a class="btn-primary" href="app.html" style="text-decoration:none">Otwórz aplikację ›</a></div>`;
+    }
+    function otworz(p) { if (p) platforma = p; inst.hidden = false; rysuj(); }
+    document.getElementById("instX").onclick = () => inst.hidden = true;
+    inst.addEventListener("click", e => { if (e.target === inst) inst.hidden = true; });
+    document.addEventListener("keydown", e => { if (e.key === "Escape") inst.hidden = true; });
+    document.querySelectorAll("#instTabs button").forEach(b => b.onclick = () => { platforma = b.dataset.p; rysuj(); });
+    // Każdy przycisk „Pobierz” otwiera kreator; przyciski iPhone/Android od razu z właściwą instrukcją
+    document.querySelectorAll('a[href="#pobierz"], #installBtn').forEach(a => a.addEventListener("click", e => { e.preventDefault(); otworz(); }));
+    document.querySelectorAll('a[href="#ios"]').forEach(a => a.addEventListener("click", e => { e.preventDefault(); otworz("ios"); }));
+    document.querySelectorAll('a[href="#android"]').forEach(a => a.addEventListener("click", e => { e.preventDefault(); otworz("android"); }));
+    if (location.hash === "#instaluj") otworz();
   </script>
+
 </body>
 </html>
