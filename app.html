@@ -96,6 +96,17 @@
     .dict.live { background: linear-gradient(135deg, #dc2626, var(--orange)); animation: pulse 1.4s ease-in-out infinite; }
     .rec-mini.live { background: linear-gradient(135deg, #dc2626, var(--orange)); }
 
+    /* ANALIZA AI */
+    .ai-card { border-color: rgba(168,85,247,.45); box-shadow: 0 0 26px rgba(168,85,247,.12); }
+    .ai-sec { margin-top: 14px; }
+    .ai-sec h4 { font-size: .8rem; text-transform: uppercase; letter-spacing: .06em; color: #c4b5fd; margin-bottom: 6px; }
+    .ai-sec p, .ai-sec li { font-size: .92rem; }
+    .ai-sec ul { padding-left: 18px; display: grid; gap: 6px; }
+    .ujecie { display: inline-block; font-size: .68rem; font-weight: 700; padding: 1px 7px; border-radius: 6px; margin-right: 6px; background: rgba(245,158,11,.15); color: #fcd34d; }
+    .ai-note { font-size: .72rem; color: var(--muted); margin-top: 12px; }
+    .spin { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,.3); border-top-color: #fff; border-radius: 50%; animation: sp 1s linear infinite; }
+    @keyframes sp { to { transform: rotate(360deg); } }
+
     /* NUMEROLOGIA */
     .num-big { display: flex; align-items: center; gap: 16px; }
     .num-circle { flex: 0 0 72px; height: 72px; border-radius: 50%; display: grid; place-items: center; font-size: 1.9rem; font-weight: 800; background: radial-gradient(circle, rgba(168,85,247,.4), rgba(99,102,241,.12)); border: 1px solid rgba(168,85,247,.55); box-shadow: 0 0 24px rgba(168,85,247,.35); }
@@ -223,6 +234,13 @@
         <div class="tags" id="tagSuggest"></div>
       </div>
 
+      <div class="card ai-card">
+        <b>✨ Analiza AI</b>
+        <p class="muted small" style="margin:4px 0 10px">Porządkuje Twój zapis, wyjaśnia symbole według psychologii snu, Junga i symboliki kulturowej oraz szuka powiązań z Twoimi wcześniejszymi snami. Bez zmyślania.</p>
+        <button class="btn full" id="aiBtn">✨ Uporządkuj i przeanalizuj</button>
+        <div id="aiOut"></div>
+      </div>
+
       <div class="card" id="dAkasza" hidden>
         <b>🔮 Odniesienie do Kronik Akaszy</b>
         <p class="muted small" style="margin:4px 0 8px">Twoje skojarzenia tego snu z odczytem lub kontekstem duszy.</p>
@@ -291,7 +309,7 @@
         <p class="muted small" style="margin:4px 0 12px">Kasuje sny, nagrania i profil z tego telefonu. Tego nie da się cofnąć.</p>
         <button class="btn danger full" id="wipeBtn">Usuń wszystko</button>
       </div>
-      <p class="muted small" style="text-align:center"><a href="./" style="color:var(--muted)">Strona Dziennika Snów</a> · wersja 1.4</p>
+      <p class="muted small" style="text-align:center"><a href="./" style="color:var(--muted)">Strona Dziennika Snów</a> · wersja 1.5</p>
     </section>
   </main>
 
@@ -663,6 +681,7 @@
       const s2 = await dbGet("sny", id); s2.notes.splice(Number(b.dataset.note), 1); await dbPut("sny", s2); openDream(id);
     });
     renderTags(s);
+    renderAI(s.ai);
     $("tabs").classList.remove("hide");
   }
   async function saveField(fn) { const s = await dbGet("sny", openId); if (!s) return; fn(s); s.updated = Date.now(); await dbPut("sny", s); }
@@ -747,6 +766,64 @@
     try { r.start(); } catch (x) { toast("Nie udało się włączyć dyktowania."); dyktuje = null; btn.classList.remove("live"); btn.textContent = label; }
   }
   document.querySelectorAll(".dict").forEach(b => b.onclick = () => startDict(b));
+
+
+  /* =====================================================
+     ANALIZA AI (online, opcjonalna)
+     ===================================================== */
+  const AI_URL = "https://qtbjrwcwatxgsuwaxklf.supabase.co/functions/v1/analiza-snu";
+  const AI_KEY = "sb_publishable_AY0XDT4l0agvrRNAkUfjAg_65SUa3zf";
+  function urzadzenie() { let u = LS.get("urz", null); if (!u) { u = uid() + uid(); LS.set("urz", u); } return u; }
+  function renderAI(ai) {
+    const out = $("aiOut");
+    if (!ai) { out.innerHTML = ""; $("aiBtn").textContent = "✨ Uporządkuj i przeanalizuj"; return; }
+    const w = ai.wynik || {}, L = a => Array.isArray(a) ? a : [];
+    const sek = (tyt, html) => html ? `<div class="ai-sec"><h4>${tyt}</h4>${html}</div>` : "";
+    out.innerHTML =
+      sek("Uporządkowany sen", w.opis ? `<p>${esc(w.opis)}</p>` + (w.tytul ? `<button class="tag big x" id="aiTitle" style="margin-top:8px">Ustaw tytuł: „${esc(w.tytul)}”</button>` : "") : "") +
+      sek("Symbole", L(w.symbole).length ? `<ul>${L(w.symbole).map(x => `<li><b>${esc(x.symbol)}</b>${L(x.znaczenia).map(z => `<div style="margin-top:3px"><span class="ujecie">${esc(z.ujecie)}</span>${esc(z.tresc)}</div>`).join("")}</li>`).join("")}</ul>` + `<button class="tag big x" id="aiTags" style="margin-top:8px">+ Dodaj symbole do snu</button>` : "") +
+      sek("Emocje", L(w.emocje).length ? `<div class="tags">${L(w.emocje).map(e => `<span class="tag">${esc(e)}</span>`).join("")}</div>` : "") +
+      sek("Powiązania z innymi snami", L(w.powiazania).length ? `<ul>${L(w.powiazania).map(p => `<li><b>${esc(p.data)}</b>: ${esc(p.co)}</li>`).join("")}</ul>` : "") +
+      sek("Możliwe znaczenia", L(w.interpretacje).length ? `<ul>${L(w.interpretacje).map(i => `<li><span class="ujecie">${esc(i.ujecie)}</span>${esc(i.tresc)}</li>`).join("")}</ul>` : "") +
+      sek("Twój kontekst duchowy", w.kontekst_osobisty ? `<p>${esc(w.kontekst_osobisty)}</p>` : "") +
+      sek("Pytania do refleksji", L(w.pytania).length ? `<ul>${L(w.pytania).map(q => `<li>${esc(q)}</li>`).join("")}</ul>` : "") +
+      (w.wsparcie ? `<div class="banner" style="margin-top:14px">💜 <span>${esc(w.wsparcie)}</span></div>` : "") +
+      `<p class="ai-note">Analiza z ${fmtShort(ai.t)}, ${fmtTime(ai.t)}. To propozycje do refleksji, nie wyrocznia. Najważniejsze są Twoje własne skojarzenia.</p>`;
+    $("aiBtn").textContent = "🔄 Przeanalizuj ponownie";
+    if ($("aiTitle")) $("aiTitle").onclick = async () => { await saveField(s => s.title = w.tytul); $("dTitle").value = w.tytul; toast("Tytuł ustawiony ✓"); };
+    if ($("aiTags")) $("aiTags").onclick = async () => { for (const x of L(w.symbole)) await addTag(String(x.symbol || "")); toast("Symbole dodane ✓"); };
+  }
+  $("aiBtn").onclick = async () => {
+    const s = await dbGet("sny", openId); if (!s) return;
+    const tekst = s.notes.map(n => n.text).join("\n").trim();
+    if (!tekst) { toast("AI analizuje tekst. Dopisz albo podyktuj sen (🎤 Mów, a ja zapiszę). Nagrań głosowych AI jeszcze nie słyszy."); return; }
+    if (!navigator.onLine) { toast("Analiza AI wymaga internetu."); return; }
+    if (!LS.get("aiZgoda", false)) {
+      if (!confirm("Analiza AI wyśle treść tego snu (tekst, bez nagrań), krótkie opisy Twoich wcześniejszych snów, Twoje liczby z numerologii i, jeśli włączone, kontekst z Kronik Akaszy do serwera aplikacji i modelu AI (Anthropic Claude). Nie zapisujemy ich w żadnej bazie. Kontynuować?")) return;
+      LS.set("aiZgoda", true);
+    }
+    const p = LS.get("profil", {}), y = new Date().getFullYear();
+    const inne = (await dbAll("sny")).filter(x => x.id !== s.id).sort((a, b) => b.created - a.created).slice(0, 20)
+      .map(x => ({ data: fmtShort(x.created), tytul: x.title, symbole: x.tags, skrot: (x.notes.map(n => n.text).join(" ")).slice(0, 220) }));
+    const akaszaOn = LS.get("akasza", false);
+    const body = {
+      urzadzenie: urzadzenie(),
+      sen: { data: fmtShort(s.created), tytul: s.title, notatki: s.notes.map(n => n.text), symbole: s.tags },
+      poprzednie: inne,
+      profil: { droga_zycia: lifePath(p.data), rok_osobisty: personalYear(p.data, y) },
+      akasza: akaszaOn ? [LS.get("akaszaCtx", ""), s.akasza ? "Notatka do tego snu: " + s.akasza : ""].filter(Boolean).join("\n").slice(0, 4000) : ""
+    };
+    const btn = $("aiBtn"); btn.disabled = true; btn.innerHTML = `<span class="spin"></span> Analizuję sen…`;
+    try {
+      const r = await fetch(AI_URL, { method: "POST", headers: { apikey: AI_KEY, "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok || !d.wynik) throw new Error(d.blad || "Analiza chwilowo niedostępna.");
+      const ai = { t: Date.now(), wynik: d.wynik };
+      await saveField(x => x.ai = ai);
+      renderAI(ai); toast("Gotowe ✨");
+    } catch (e) { toast(e.message || "Analiza chwilowo niedostępna."); renderAI((await dbGet("sny", openId)).ai); }
+    btn.disabled = false;
+  };
 
   /* =====================================================
      NUMEROLOGIA

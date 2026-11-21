@@ -1,0 +1,97 @@
+// ============ DZIENNIK SNÓW: Edge Function "analiza-snu" ============
+// Wklej całość w Supabase → Edge Functions → Deploy a new function → Via Editor
+// Nazwa funkcji: analiza-snu   |   WYŁĄCZ "Verify JWT"
+// Sekret (Edge Functions → Secrets): ANTHROPIC_API_KEY
+
+const MODEL = Deno.env.get("AI_MODEL") ?? "claude-sonnet-5-5";
+const LIMIT_URZADZENIE = Number(Deno.env.get("AI_LIMIT_URZADZENIE") ?? 10); // analiz dziennie na telefon
+const LIMIT_DZIENNY = Number(Deno.env.get("AI_LIMIT_DZIENNY") ?? 300);      // analiz dziennie łącznie
+const DOZWOLONE = ["https://dzienniksnow.pl", "https://www.dzienniksnow.pl", "https://piotr8219.github.io"];
+
+const SYSTEM = `Jesteś rzetelnym asystentem do pracy ze snami w polskiej aplikacji „Dziennik Snów”. Piszesz po polsku, ciepło, prosto i konkretnie.
+
+ZASADY RZETELNOŚCI (najważniejsze):
+1. Opieraj się wyłącznie na tym, co użytkownik zapisał. Niczego nie dopowiadaj: żadnych osób, zdarzeń ani szczegółów, których nie ma w notatkach. Jeśli tekst jest chaotyczny, uporządkuj go, ale nie zmieniaj sensu.
+2. Interpretacje podawaj jako możliwości („może”, „często bywa”), nigdy jako pewnik, i przy każdej wskaż ujęcie, z którego pochodzi:
+   – „Psychologia snu”: hipoteza ciągłości (sny odzwierciedlają sprawy, emocje i troski z życia na jawie), rola snu REM w przetwarzaniu emocji i pamięci, badania treści snów (Hall i Van de Castle).
+   – „Jung”: archetypy, cień, kompensacja; zaznacz, że to teoria, nie fakt naukowy.
+   – „Symbolika kulturowa”: tradycyjne znaczenia symboli; zaznacz, że są umowne i zależą od kultury.
+3. Najważniejsze jest osobiste skojarzenie śniącego. Ten sam symbol znaczy dla różnych ludzi co innego, dlatego zadawaj pytania zamiast wyrokować.
+4. Nie przepowiadaj przyszłości, nie stawiaj diagnoz zdrowotnych ani psychologicznych.
+5. Numerologię i Kroniki Akaszy traktuj jako osobisty, duchowy kontekst użytkownika i ramę do refleksji, wyraźnie oznaczoną jako ezoteryczną, a nie naukową. Szanuj ją, nie wyśmiewaj i niczego w niej nie zmyślaj.
+6. Powiązania z wcześniejszymi snami wskazuj tylko wtedy, gdy wynikają z danych (te same symbole, osoby, miejsca, emocje), i podawaj datę snu. Jeśli powiązań nie ma, zwróć pustą listę.
+7. Jeśli sen dotyczy przemocy, samookaleczenia albo powtarzającego się silnego lęku, łagodnie zachęć do rozmowy z bliską osobą lub specjalistą.
+
+Odpowiedz WYŁĄCZNIE poprawnym JSON-em (bez \`\`\` i bez komentarzy), w formacie:
+{
+  "tytul": "krótki tytuł snu, max 6 słów",
+  "opis": "uporządkowany opis snu w 1. osobie, tylko fakty z notatek",
+  "symbole": [{"symbol": "…", "znaczenia": [{"ujecie": "Psychologia snu|Jung|Symbolika kulturowa", "tresc": "…"}]}],
+  "emocje": ["…"],
+  "powiazania": [{"data": "…", "co": "…"}],
+  "interpretacje": [{"ujecie": "…", "tresc": "…"}],
+  "kontekst_osobisty": "odniesienie do numerologii / Kronik Akaszy, jeśli podano; inaczej pusty tekst",
+  "pytania": ["2–4 pytania do refleksji"],
+  "wsparcie": "pusty tekst albo łagodna zachęta do rozmowy z kimś, jeśli potrzebna"
+}`;
+
+function cors(origin: string | null) {
+  return {
+    "Access-Control-Allow-Origin": origin && DOZWOLONE.includes(origin) ? origin : DOZWOLONE[0],
+    "Access-Control-Allow-Headers": "authorization, apikey, content-type",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Content-Type": "application/json",
+  };
+}
+
+Deno.serve(async (req) => {
+  const h = cors(req.headers.get("origin"));
+  if (req.method === "OPTIONS") return new Response("ok", { headers: h });
+  if (req.method !== "POST") return new Response(JSON.stringify({ blad: "Zła metoda" }), { status: 405, headers: h });
+
+  try {
+    const d = await req.json();
+    const urz = String(d.urzadzenie || "").slice(0, 64);
+    const wejscie = JSON.stringify({ sen: d.sen, poprzednie: d.poprzednie, profil: d.profil, akasza: d.akasza || "" });
+    if (!urz || !d.sen) return new Response(JSON.stringify({ blad: "Brak danych snu." }), { status: 400, headers: h });
+    if (wejscie.length > 15000) return new Response(JSON.stringify({ blad: "Sen jest za długi do analizy." }), { status: 400, headers: h });
+
+    // Limit użycia (chroni przed nadużyciem i kosztami)
+    const sbUrl = Deno.env.get("SUPABASE_URL")!, sbKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const lim = await fetch(`${sbUrl}/rest/v1/rpc/ai_zuzyj`, {
+      method: "POST",
+      headers: { apikey: sbKey, Authorization: `Bearer ${sbKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ p_urz: urz, p_limit_urz: LIMIT_URZADZENIE, p_limit_dzien: LIMIT_DZIENNY }),
+    });
+    if (!lim.ok || (await lim.json()) !== true) {
+      return new Response(JSON.stringify({ blad: "Dzisiejszy limit analiz został wykorzystany. Spróbuj jutro 🌙" }), { status: 429, headers: h });
+    }
+
+    const r = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "x-api-key": Deno.env.get("ANTHROPIC_API_KEY")!,
+        "anthropic-version": "2023-06-01",
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        model: MODEL,
+        max_tokens: 2000,
+        system: SYSTEM,
+        messages: [{ role: "user", content: "Dane do analizy (JSON):\n" + wejscie }],
+      }),
+    });
+    if (!r.ok) {
+      console.error("Anthropic:", r.status, await r.text());
+      return new Response(JSON.stringify({ blad: "Analiza chwilowo niedostępna. Spróbuj za chwilę." }), { status: 502, headers: h });
+    }
+    const odp = await r.json();
+    let tekst = (odp.content || []).map((c: { text?: string }) => c.text || "").join("").trim();
+    tekst = tekst.replace(/^```(json)?/i, "").replace(/```$/, "").trim();
+    const wynik = JSON.parse(tekst.slice(tekst.indexOf("{"), tekst.lastIndexOf("}") + 1));
+    return new Response(JSON.stringify({ wynik }), { headers: h });
+  } catch (e) {
+    console.error(e);
+    return new Response(JSON.stringify({ blad: "Coś poszło nie tak przy analizie." }), { status: 500, headers: h });
+  }
+});
