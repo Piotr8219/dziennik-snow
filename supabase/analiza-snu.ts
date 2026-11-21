@@ -99,7 +99,7 @@ Deno.serve(async (req) => {
         max_tokens: 4000,
         system: SYSTEM,
         tools: [NARZEDZIE],
-        tool_choice: { type: "tool", name: "zapisz_analize" },
+        tool_choice: { type: "auto" },
         messages: [{ role: "user", content: "Dane do analizy (JSON):\n" + wejscie }],
       }),
     });
@@ -109,11 +109,14 @@ Deno.serve(async (req) => {
     }
     const odp = await r.json();
     const narz = (odp.content || []).find((c: { type: string }) => c.type === "tool_use");
-    if (!narz || !narz.input) {
-      console.error("Brak wyniku narzędzia:", odp.stop_reason, JSON.stringify(odp).slice(0, 500));
-      return new Response(JSON.stringify({ blad: "Analiza się nie udała. Spróbuj jeszcze raz." }), { status: 502, headers: h });
+    let wynik = narz && narz.input;
+    if (!wynik) {
+      // Zapas: model odpowiedział tekstem zamiast narzędziem
+      const tekst = (odp.content || []).map((c: { text?: string }) => c.text || "").join("").trim();
+      try { wynik = JSON.parse(tekst.slice(tekst.indexOf("{"), tekst.lastIndexOf("}") + 1)); }
+      catch { console.error("Brak wyniku narzędzia:", odp.stop_reason, tekst.slice(0, 300)); }
     }
-    const wynik = narz.input;
+    if (!wynik) return new Response(JSON.stringify({ blad: "Analiza się nie udała. Spróbuj jeszcze raz." }), { status: 502, headers: h });
     return new Response(JSON.stringify({ wynik }), { headers: h });
   } catch (e) {
     console.error(e);
