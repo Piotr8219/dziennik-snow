@@ -24,18 +24,32 @@ ZASADY RZETELNOŚCI (najważniejsze):
 6. Powiązania z wcześniejszymi snami wskazuj tylko wtedy, gdy wynikają z danych (te same symbole, osoby, miejsca, emocje), i podawaj datę snu. Jeśli powiązań nie ma, zwróć pustą listę.
 7. Jeśli sen dotyczy przemocy, samookaleczenia albo powtarzającego się silnego lęku, łagodnie zachęć do rozmowy z bliską osobą lub specjalistą.
 
-Odpowiedz WYŁĄCZNIE poprawnym JSON-em (bez \`\`\` i bez komentarzy), w formacie:
-{
-  "tytul": "krótki tytuł snu, max 6 słów",
-  "opis": "uporządkowany opis snu w 1. osobie, tylko fakty z notatek",
-  "symbole": [{"symbol": "…", "znaczenia": [{"ujecie": "Psychologia snu|Jung|Symbolika kulturowa|Mistyka · Dolores Cannon", "tresc": "…"}]}],
-  "emocje": ["…"],
-  "powiazania": [{"data": "…", "co": "…"}],
-  "interpretacje": [{"ujecie": "…", "tresc": "…"}],
-  "kontekst_osobisty": "odniesienie do numerologii / Kronik Akaszy, jeśli podano; inaczej pusty tekst",
-  "pytania": ["2–4 pytania do refleksji"],
-  "wsparcie": "pusty tekst albo łagodna zachęta do rozmowy z kimś, jeśli potrzebna"
-}`;
+Wynik zapisz WYŁĄCZNIE przez narzędzie "zapisz_analize". Pisz zwięźle: przy każdym symbolu 2–4 krótkie znaczenia z różnych ujęć, 2–4 interpretacje, 2–4 pytania.`;
+
+const UJECIA = ["Psychologia snu", "Jung", "Symbolika kulturowa", "Mistyka · Dolores Cannon"];
+const NARZEDZIE = {
+  name: "zapisz_analize",
+  description: "Zapisuje analizę snu w aplikacji Dziennik Snów.",
+  input_schema: {
+    type: "object",
+    properties: {
+      tytul: { type: "string", description: "krótki tytuł snu, max 6 słów" },
+      opis: { type: "string", description: "uporządkowany opis snu w 1. osobie, tylko fakty z notatek" },
+      symbole: { type: "array", items: { type: "object", properties: {
+        symbol: { type: "string" },
+        znaczenia: { type: "array", items: { type: "object", properties: {
+          ujecie: { type: "string", enum: UJECIA }, tresc: { type: "string" } }, required: ["ujecie", "tresc"] } } },
+        required: ["symbol", "znaczenia"] } },
+      emocje: { type: "array", items: { type: "string" } },
+      powiazania: { type: "array", items: { type: "object", properties: { data: { type: "string" }, co: { type: "string" } }, required: ["data", "co"] } },
+      interpretacje: { type: "array", items: { type: "object", properties: { ujecie: { type: "string", enum: UJECIA }, tresc: { type: "string" } }, required: ["ujecie", "tresc"] } },
+      kontekst_osobisty: { type: "string", description: "odniesienie do numerologii / Kronik Akaszy, jeśli podano; inaczej pusty tekst" },
+      pytania: { type: "array", items: { type: "string" } },
+      wsparcie: { type: "string", description: "pusty tekst albo łagodna zachęta do rozmowy z kimś, jeśli potrzebna" },
+    },
+    required: ["tytul", "opis", "symbole", "emocje", "powiazania", "interpretacje", "kontekst_osobisty", "pytania", "wsparcie"],
+  },
+};
 
 function cors(origin: string | null) {
   return {
@@ -82,8 +96,10 @@ Deno.serve(async (req) => {
       },
       body: JSON.stringify({
         model: MODEL,
-        max_tokens: 3000,
+        max_tokens: 4000,
         system: SYSTEM,
+        tools: [NARZEDZIE],
+        tool_choice: { type: "tool", name: "zapisz_analize" },
         messages: [{ role: "user", content: "Dane do analizy (JSON):\n" + wejscie }],
       }),
     });
@@ -92,9 +108,12 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ blad: "Analiza chwilowo niedostępna. Spróbuj za chwilę." }), { status: 502, headers: h });
     }
     const odp = await r.json();
-    let tekst = (odp.content || []).map((c: { text?: string }) => c.text || "").join("").trim();
-    tekst = tekst.replace(/^```(json)?/i, "").replace(/```$/, "").trim();
-    const wynik = JSON.parse(tekst.slice(tekst.indexOf("{"), tekst.lastIndexOf("}") + 1));
+    const narz = (odp.content || []).find((c: { type: string }) => c.type === "tool_use");
+    if (!narz || !narz.input) {
+      console.error("Brak wyniku narzędzia:", odp.stop_reason, JSON.stringify(odp).slice(0, 500));
+      return new Response(JSON.stringify({ blad: "Analiza się nie udała. Spróbuj jeszcze raz." }), { status: 502, headers: h });
+    }
+    const wynik = narz.input;
     return new Response(JSON.stringify({ wynik }), { headers: h });
   } catch (e) {
     console.error(e);
