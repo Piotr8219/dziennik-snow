@@ -334,7 +334,7 @@
         <p class="muted small" style="margin:4px 0 12px">Kasuje sny, nagrania i profil z tego telefonu. Tego nie da się cofnąć.</p>
         <button class="btn danger full" id="wipeBtn">Usuń wszystko</button>
       </div>
-      <p class="muted small" style="text-align:center"><a href="./" style="color:var(--muted)">Strona Dziennika Snów</a> · wersja 1.12</p>
+      <p class="muted small" style="text-align:center"><a href="./" style="color:var(--muted)">Strona Dziennika Snów</a> · wersja 1.13</p>
     </section>
   </main>
 
@@ -363,7 +363,7 @@
   </div>
 
   <div class="bday" id="zgoda" hidden style="background:rgba(3,5,12,.8);backdrop-filter:blur(6px)">
-    <div class="card ai-card" style="max-width:420px;text-align:left;padding:22px">
+    <div class="card ai-card" style="max-width:420px;text-align:left;padding:22px;background:#14102f">
       <div style="font-size:2rem;text-align:center">✨</div>
       <h2 style="text-align:center;margin:6px 0 10px">Analiza AI</h2>
       <p class="small" style="margin-bottom:8px">Do analizy wyślemy <b>tekst wybranych snów</b> (bez nagrań), krótkie opisy wcześniejszych snów, Twoje liczby z numerologii i, jeśli włączone, kontekst z Kronik Akaszy.</p>
@@ -371,6 +371,19 @@
       <div class="actions" style="margin:0">
         <button class="btn ghost" id="zgodaNie">Nie teraz</button>
         <button class="btn" id="zgodaTak">Zgadzam się</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="bday" id="okno" hidden style="background:rgba(3,5,12,.8);backdrop-filter:blur(6px);z-index:70">
+    <div class="card ai-card" style="max-width:420px;width:100%;text-align:center;padding:22px;background:#14102f">
+      <div id="oknoIkona" style="font-size:2.2rem"></div>
+      <h2 id="oknoTytul" style="margin:6px 0 8px"></h2>
+      <p id="oknoTekst" class="small" style="white-space:pre-line;margin-bottom:14px"></p>
+      <input id="oknoPole" hidden style="margin-bottom:14px;text-align:center" autocomplete="off" />
+      <div class="actions" style="margin:0" id="oknoPrzyciski">
+        <button class="btn ghost" id="oknoNie"></button>
+        <button class="btn" id="oknoTak"></button>
       </div>
     </div>
   </div>
@@ -389,7 +402,23 @@
   const fmtShort = ts => new Date(ts).toLocaleDateString("pl-PL", { day: "numeric", month: "short", year: "numeric" });
   const fmtTime = ts => new Date(ts).toLocaleTimeString("pl-PL", { hour: "2-digit", minute: "2-digit" });
   const fmtDur = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
-  function toast(msg) { const t = $("toast"); t.textContent = msg; t.classList.add("on"); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove("on"), 2400); }
+  // Ładne okienka w stylu aplikacji (zamiast systemowych komunikatów)
+  function okno({ ikona = "🌙", tytul = "", tekst = "", tak = "OK", nie = "", groznie = false, pole = null }) {
+    return new Promise(res => {
+      $("oknoIkona").textContent = ikona; $("oknoTytul").textContent = tytul; $("oknoTekst").textContent = tekst;
+      const p = $("oknoPole"); p.hidden = !pole; p.value = ""; if (pole) p.placeholder = pole.placeholder || "";
+      $("oknoTak").textContent = tak; $("oknoNie").textContent = nie; $("oknoNie").hidden = !nie;
+      $("oknoPrzyciski").style.gridTemplateColumns = nie ? "1fr 1fr" : "1fr";
+      $("oknoTak").className = "btn" + (groznie ? " danger" : "");
+      const koniec = w => { $("okno").hidden = true; res(w); };
+      $("oknoTak").onclick = () => koniec(pole ? p.value.trim() : true);
+      $("oknoNie").onclick = () => koniec(pole ? null : false);
+      $("okno").hidden = false; if (pole) setTimeout(() => p.focus(), 100);
+    });
+  }
+  const pytaj = (tytul, tekst, tak = "Tak", ikona = "🗑️") => okno({ ikona, tytul, tekst, tak, nie: "Anuluj", groznie: true });
+
+  function toast(msg) { const t = $("toast"); t.textContent = msg; t.classList.add("on"); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove("on"), Math.max(2400, msg.length * 70)); }
   const LS = {
     get(k, d) { try { const v = localStorage.getItem("ds_" + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
     set(k, v) { try { localStorage.setItem("ds_" + k, JSON.stringify(v)); } catch (e) {} }
@@ -581,10 +610,10 @@
     return window.MediaRecorder ? (t.find(m => MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(m)) || "") : "";
   }
   async function startRec(targetId, btn) {
-    if (!navigator.mediaDevices || !window.MediaRecorder) { toast("Ten telefon nie obsługuje nagrywania. Możesz napisać sen."); return; }
+    if (!navigator.mediaDevices || !window.MediaRecorder) { okno({ ikona: "🎙️", tytul: "Nagrywanie niedostępne", tekst: "Ten telefon lub przeglądarka nie obsługuje nagrywania. Możesz napisać sen albo użyć mikrofonu na klawiaturze.", tak: "OK" }); return; }
     let stream;
     try { stream = await navigator.mediaDevices.getUserMedia({ audio: true }); }
-    catch (e) { toast("Zezwól na dostęp do mikrofonu, żeby nagrywać sny."); return; }
+    catch (e) { okno({ ikona: "🎙️", tytul: "Potrzebny mikrofon", tekst: "Zezwól aplikacji na mikrofon, żeby nagrywać sny.\n\nJeśli wcześniej kliknąłeś „Nie zezwalaj”: Chrome → ⋮ → Ustawienia → Ustawienia witryn → Mikrofon → dzienniksnow.pl → Zezwalaj.", tak: "Rozumiem" }); return; }
     const mime = pickMime();
     rec = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
     chunks = []; recTarget = targetId; recBtnEl = btn; recStart = Date.now();
@@ -715,7 +744,7 @@
     const dup = await znajdzDuplikaty(), el = $("dupBanner");
     el.innerHTML = dup.length ? `<div class="banner">🔁 <span>Znalazłem ${dup.length} ${dup.length === 1 ? "powtórzony sen" : "powtórzone sny"} (ta sama treść).</span><button class="btn" id="dupFix">Usuń powtórzenia</button></div>` : "";
     if ($("dupFix")) $("dupFix").onclick = async () => {
-      if (!confirm(`Usunąć ${dup.length} ${dup.length === 1 ? "powtórzony sen" : "powtórzone sny"}? Oryginały zostaną. Tego nie da się cofnąć.`)) return;
+      if (!(await pytaj("Usunąć powtórzenia?", `${dup.length} ${dup.length === 1 ? "powtórzony sen zostanie usunięty" : "powtórzone sny zostaną usunięte"}. Oryginały zostają.\nTego nie da się cofnąć.`, "Usuń powtórzenia"))) return;
       for (const d of dup) {
         for (const r of await recsOf(d.usun.id)) await dbDel("nagrania", r.id);
         await dbDel("sny", d.usun.id);
@@ -778,11 +807,11 @@
       $("dEntries").appendChild(div);
     }
     $("dEntries").querySelectorAll("[data-rec]").forEach(b => b.onclick = async () => {
-      if (!confirm("Usunąć to nagranie?")) return;
+      if (!(await pytaj("Usunąć nagranie?", "Tego nagrania nie da się przywrócić.", "Usuń"))) return;
       await dbDel("nagrania", b.dataset.rec); openDream(id);
     });
     $("dEntries").querySelectorAll("[data-note]").forEach(b => b.onclick = async () => {
-      if (!confirm("Usunąć tę notatkę?")) return;
+      if (!(await pytaj("Usunąć notatkę?", "Tej notatki nie da się przywrócić.", "Usuń"))) return;
       const s2 = await dbGet("sny", id); s2.notes.splice(Number(b.dataset.note), 1); await dbPut("sny", s2); openDream(id);
     });
     renderTags(s);
@@ -806,9 +835,9 @@
     toast("Zapisano ✨"); openDream(openId);
   };
   $("delDream").onclick = async () => {
-    if (!confirm("Usunąć ten sen razem z nagraniami?")) return;
+    if (!(await pytaj("Usunąć ten sen?", "Sen zostanie usunięty razem z nagraniami, notatkami i analizą AI.\nTego nie da się cofnąć.", "Usuń sen"))) return;
     for (const r of await recsOf(openId)) await dbDel("nagrania", r.id);
-    await dbDel("sny", openId); toast("Sen usunięty"); show(backTo);
+    await dbDel("sny", openId); toast("Sen usunięty ✓"); show(backTo);
   };
   async function renderTags(s) {
     $("dTags").innerHTML = s.tags.length ? s.tags.map((t, i) => `<button class="tag big x" data-i="${i}">${esc(t)} ✕</button>`).join("") : `<span class="muted small">Brak symboli</span>`;
@@ -937,8 +966,8 @@
   }
   $("aiBtn").onclick = async () => {
     const s = await dbGet("sny", openId); if (!s) return;
-    if (!tekstSnu(s)) { toast("AI analizuje tekst. Dopisz albo podyktuj sen (🎤 Mów, a ja zapiszę). Nagrań głosowych AI jeszcze nie słyszy."); return; }
-    if (!navigator.onLine) { toast("Analiza AI wymaga internetu."); return; }
+    if (!tekstSnu(s)) { okno({ ikona: "✍️", tytul: "AI potrzebuje tekstu", tekst: "Analiza AI czyta tekst snu, nagrań głosowych jeszcze nie słyszy.\n\nOtwórz sen, kliknij „Dopisz” i użyj „🎤 Mów, a ja zapiszę” albo napisz kilka zdań.", tak: "Rozumiem" }); return; }
+    if (!navigator.onLine) { okno({ ikona: "📶", tytul: "Brak internetu", tekst: "Analiza AI działa tylko online. Twoje sny są bezpieczne, spróbuj, gdy złapiesz zasięg.", tak: "OK" }); return; }
     if (!(await aiZgoda())) return;
     const body = { ...(await aiPodstawa([s.id], s.akasza ? ["Notatka do tego snu: " + s.akasza] : [])),
       sen: { data: fmtShort(s.created), tytul: s.title, notatki: s.notes.map(n => n.text), symbole: s.tags } };
@@ -947,7 +976,7 @@
       const ai = { t: Date.now(), wynik: await aiWyslij(body) };
       await saveField(x => x.ai = ai);
       renderAI(ai); toast("Gotowe ✨");
-    } catch (e) { toast(e.message || "Analiza chwilowo niedostępna."); renderAI((await dbGet("sny", openId)).ai); }
+    } catch (e) { okno({ ikona: "🌙", tytul: "Analiza AI", tekst: e.message || "Analiza chwilowo niedostępna. Spróbuj za chwilę.", tak: "OK" }); renderAI((await dbGet("sny", openId)).ai); }
     btn.disabled = false;
   };
 
@@ -968,8 +997,8 @@
   $("selGo").onclick = async () => {
     const wybrane = (await Promise.all([...wybor].map(id => dbGet("sny", id)))).filter(Boolean).sort((a, b) => a.created - b.created);
     const zTekstem = wybrane.filter(tekstSnu);
-    if (!zTekstem.length) { toast("Zaznaczone sny nie mają tekstu. AI analizuje tylko tekst (podyktuj albo dopisz sen)."); return; }
-    if (!navigator.onLine) { toast("Analiza AI wymaga internetu."); return; }
+    if (!zTekstem.length) { okno({ ikona: "✍️", tytul: "AI potrzebuje tekstu", tekst: "Analiza AI czyta tekst snu, nagrań głosowych jeszcze nie słyszy.\n\nOtwórz sen, kliknij „Dopisz” i użyj „🎤 Mów, a ja zapiszę” albo napisz kilka zdań.", tak: "Rozumiem" }); return; }
+    if (!navigator.onLine) { okno({ ikona: "📶", tytul: "Brak internetu", tekst: "Analiza AI działa tylko online. Twoje sny są bezpieczne, spróbuj, gdy złapiesz zasięg.", tak: "OK" }); return; }
     if (!(await aiZgoda())) return;
     const body = { ...(await aiPodstawa(zTekstem.map(s => s.id), zTekstem.filter(s => s.akasza).map(s => `Notatka do snu „${s.title}”: ${s.akasza}`))),
       sny: zTekstem.map(s => ({ id: s.id, data: fmtShort(s.created) + ", " + fmtTime(s.created), tytul: s.title, notatki: s.notes.map(n => n.text), symbole: s.tags })) };
@@ -989,7 +1018,7 @@
       trybWyboru = false; wybor.clear();
       pokazGrupe(grupa, zTekstem.length < wybrane.length ? wybrane.length - zTekstem.length : 0);
       toast("Gotowe ✨");
-    } catch (e) { toast(e.message || "Analiza chwilowo niedostępna."); odswiezPasek(); }
+    } catch (e) { okno({ ikona: "🌙", tytul: "Analiza AI", tekst: e.message || "Analiza chwilowo niedostępna. Spróbuj za chwilę.", tak: "OK" }); odswiezPasek(); }
     btn.disabled = false; btn.textContent = "✨ Analizuj";
   };
   function htmlWspolne(g) {
@@ -1085,8 +1114,8 @@
       catch (e) { if (e.name === "AbortError") return; }
     }
     // 2) Zapas: zwykłe pobranie pliku do folderu „Pobrane”
-    try { pobierz(); gotowe(`Zapisano w „Pobrane”: ${name}`); setTimeout(() => alert(`Kopia zapisana ✓\n\nPlik: ${name}\n\nZnajdziesz go w aplikacji „Moje pliki” → „Pobrane” (albo w Chrome: ⋮ → Pobrane pliki).\n\nNajlepiej przenieś go na Dysk Google, wtedy przetrwa nawet zgubienie telefonu.`), 600); }
-    catch (e) { toast("Nie udało się zapisać kopii. Spróbuj ponownie."); }
+    try { pobierz(); gotowe(`Zapisano w „Pobrane”: ${name}`); setTimeout(() => okno({ ikona: "💾", tytul: "Kopia zapisana", tekst: `Plik: ${name}\n\nZnajdziesz go w „Moje pliki” → „Pobrane” (albo w Chrome: ⋮ → Pobrane pliki).\n\nNajlepiej przenieś go na Dysk Google, wtedy przetrwa nawet zgubienie telefonu.`, tak: "Rozumiem" }), 400); }
+    catch (e) { okno({ ikona: "⚠️", tytul: "Kopia nie zapisana", tekst: "Nie udało się zapisać pliku. Sprawdź, czy telefon ma wolne miejsce, i spróbuj ponownie.", tak: "OK" }); }
   }
   $("exportBtn").onclick = exportData;
   $("backupFreq").onchange = () => { LS.set("backupFreq", Number($("backupFreq").value)); toast("Zapisano ✓"); };
@@ -1096,21 +1125,22 @@
     try {
       const d = JSON.parse(await f.text());
       if (d.app !== "dziennik-snow") throw 0;
-      if (!confirm(`Wczytać kopię z ${fmtShort(d.data)}? (${d.sny.length} snów). Sny o tych samych ID zostaną nadpisane.`)) return;
+      if (!(await okno({ ikona: "⬆️", tytul: "Wczytać kopię?", tekst: `Kopia z ${fmtShort(d.data)}: ${d.sny.length} ${d.sny.length === 1 ? "sen" : "snów"}.\nSny, które już masz, zostaną; te same sny zostaną zaktualizowane z kopii.`, tak: "Wczytaj", nie: "Anuluj" }))) return;
       if (d.profil) LS.set("profil", d.profil);
       LS.set("akasza", !!d.akasza); LS.set("akaszaCtx", d.akaszaCtx || ""); if (d.zyczenia) LS.set("zyczenia", d.zyczenia);
       for (const s of d.sny) await dbPut("sny", s);
       for (const r of d.nagrania) { const blob = await (await fetch(r.audio)).blob(); await dbPut("nagrania", { id: r.id, snId: r.snId, mime: r.mime, dur: r.dur, created: r.created, blob }); }
       toast("Kopia wczytana ✓"); show("home");
-    } catch (e) { toast("To nie jest poprawny plik kopii."); }
+    } catch (e) { okno({ ikona: "⚠️", tytul: "To nie jest plik kopii", tekst: "Wybierz plik o nazwie zaczynającej się od „dziennik-snow-kopia-…”. Zwykle jest w folderze „Pobrane” albo na Dysku Google.", tak: "OK" }); }
     $("importFile").value = "";
   };
   $("wipeBtn").onclick = async () => {
-    if (!confirm("Na pewno usunąć WSZYSTKIE sny, nagrania i profil?")) return;
-    if (prompt('Wpisz USUŃ, aby potwierdzić') !== "USUŃ") return;
+    if (!(await pytaj("Usunąć wszystko?", "Znikną WSZYSTKIE sny, nagrania, analizy i profil z tego telefonu.\nTego nie da się cofnąć.", "Dalej", "⚠️"))) return;
+    const w = await okno({ ikona: "⚠️", tytul: "Ostatnie potwierdzenie", tekst: "Wpisz USUŃ, aby potwierdzić.", tak: "Usuń wszystko", nie: "Anuluj", groznie: true, pole: { placeholder: "USUŃ" } });
+    if (!w || w.toUpperCase() !== "USUŃ") { if (w !== null) toast("Nic nie usunięto."); return; }
     await tx("sny", "readwrite", s => s.clear()); await tx("nagrania", "readwrite", s => s.clear());
     ["profil", "akasza", "akaszaCtx", "zyczenia", "lastBackup", "bdayShown"].forEach(k => localStorage.removeItem("ds_" + k));
-    toast("Dane usunięte"); show("onb");
+    toast("Wszystko usunięte. Możesz zacząć od nowa 🌙"); show("onb");
   };
 
   /* =====================================================
