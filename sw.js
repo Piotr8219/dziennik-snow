@@ -1,5 +1,5 @@
 // Dziennik Snów — service worker (działanie offline)
-const CACHE = "ds-v4";
+const CACHE = "ds-v5";
 const PLIKI = ["./", "./index.html", "./app.html", "./manifest.json", "./icon-192.png", "./icon-512.png", "./apple-touch-icon.png"];
 
 self.addEventListener("install", e => {

@@ -276,6 +276,13 @@
           <button class="btn ghost" id="importBtn">⬆ Wczytaj kopię</button>
         </div>
         <input type="file" id="importFile" accept=".json,application/json" hidden />
+        <label for="backupFreq">Przypominaj o kopii</label>
+        <select id="backupFreq">
+          <option value="1">Codziennie</option>
+          <option value="7">Co tydzień</option>
+          <option value="14">Co 2 tygodnie</option>
+          <option value="0">Nie przypominaj</option>
+        </select>
       </div>
 
       <div class="card">
@@ -283,7 +290,7 @@
         <p class="muted small" style="margin:4px 0 12px">Kasuje sny, nagrania i profil z tego telefonu. Tego nie da się cofnąć.</p>
         <button class="btn danger full" id="wipeBtn">Usuń wszystko</button>
       </div>
-      <p class="muted small" style="text-align:center"><a href="./" style="color:var(--muted)">Strona Dziennika Snów</a> · wersja 1.2</p>
+      <p class="muted small" style="text-align:center"><a href="./" style="color:var(--muted)">Strona Dziennika Snów</a> · wersja 1.3</p>
     </section>
   </main>
 
@@ -569,9 +576,10 @@
     $("recentList").innerHTML = sny.length ? "" : `<div class="empty">Tu pojawią się Twoje sny.<br>Jutro rano dotknij mikrofonu 🌙</div>`;
     for (const s of sny.slice(0, 5)) $("recentList").appendChild(await dreamCard(s));
     // przypomnienie o kopii
-    const last = LS.get("lastBackup", 0), days = (Date.now() - last) / 864e5;
-    $("backupBanner").innerHTML = sny.length >= 3 && days > 14
-      ? `<div class="banner">💾 <span>${last ? "Ostatnia kopia ponad 2 tygodnie temu." : "Nie masz jeszcze kopii snów."}</span><button class="btn" id="bnBackup">Zrób kopię</button></div>` : "";
+    const last = LS.get("lastBackup", 0), days = (Date.now() - last) / 864e5, co = Number(LS.get("backupFreq", 7));
+    const zmiany = sny.some(s => (s.updated || s.created) > last);
+    $("backupBanner").innerHTML = co && sny.length && zmiany && days >= co
+      ? `<div class="banner">💾 <span>${last ? "Masz nowe sny od ostatniej kopii." : "Nie masz jeszcze kopii snów."}</span><button class="btn" id="bnBackup">Zrób kopię</button></div>` : "";
     if ($("bnBackup")) $("bnBackup").onclick = exportData;
   }
   async function dreamCard(s) {
@@ -750,6 +758,7 @@
     $("setName").value = p.imie || ""; $("setDate").value = p.data || "";
     $("setDate").max = new Date().toISOString().slice(0, 10);
     $("akaszaToggle").checked = LS.get("akasza", false);
+    $("backupFreq").value = String(LS.get("backupFreq", 7));
     const last = LS.get("lastBackup", 0);
     $("lastBackup").textContent = last ? `Ostatnia kopia: ${fmtShort(last)}. Zapisz plik w bezpiecznym miejscu (np. Dysk Google).` : "Nie masz jeszcze kopii. Zapisz ją, zanim zmienisz telefon.";
   }
@@ -780,6 +789,7 @@
     } catch (e) { if (e.name !== "AbortError") toast("Nie udało się zapisać kopii."); }
   }
   $("exportBtn").onclick = exportData;
+  $("backupFreq").onchange = () => { LS.set("backupFreq", Number($("backupFreq").value)); toast("Zapisano ✓"); };
   $("importBtn").onclick = () => $("importFile").click();
   $("importFile").onchange = async () => {
     const f = $("importFile").files[0]; if (!f) return;
