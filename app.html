@@ -334,7 +334,7 @@
         <p class="muted small" style="margin:4px 0 12px">Kasuje sny, nagrania i profil z tego telefonu. Tego nie da się cofnąć.</p>
         <button class="btn danger full" id="wipeBtn">Usuń wszystko</button>
       </div>
-      <p class="muted small" style="text-align:center"><a href="./" style="color:var(--muted)">Strona Dziennika Snów</a> · wersja 1.10</p>
+      <p class="muted small" style="text-align:center"><a href="./" style="color:var(--muted)">Strona Dziennika Snów</a> · wersja 1.11</p>
     </section>
   </main>
 
@@ -1078,7 +1078,7 @@
       catch (e) { if (e.name === "AbortError") return; }
     }
     // 2) Zapas: zwykłe pobranie pliku do folderu „Pobrane”
-    try { pobierz(); gotowe("Kopia zapisana w „Pobrane” ✓"); }
+    try { pobierz(); gotowe(`Zapisano w „Pobrane”: ${name}`); setTimeout(() => alert(`Kopia zapisana ✓\n\nPlik: ${name}\n\nZnajdziesz go w aplikacji „Moje pliki” → „Pobrane” (albo w Chrome: ⋮ → Pobrane pliki).\n\nNajlepiej przenieś go na Dysk Google, wtedy przetrwa nawet zgubienie telefonu.`), 600); }
     catch (e) { toast("Nie udało się zapisać kopii. Spróbuj ponownie."); }
   }
   $("exportBtn").onclick = exportData;
