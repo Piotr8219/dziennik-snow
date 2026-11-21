@@ -124,6 +124,12 @@
     .num-big { display: flex; align-items: center; gap: 16px; }
     .num-circle { flex: 0 0 72px; height: 72px; border-radius: 50%; display: grid; place-items: center; font-size: 1.9rem; font-weight: 800; background: radial-gradient(circle, rgba(168,85,247,.4), rgba(99,102,241,.12)); border: 1px solid rgba(168,85,247,.55); box-shadow: 0 0 24px rgba(168,85,247,.35); }
     .num-circle.gold { background: radial-gradient(circle, rgba(245,158,11,.4), rgba(245,158,11,.08)); border-color: rgba(245,158,11,.6); box-shadow: 0 0 24px rgba(245,158,11,.35); }
+    .num-click { cursor: pointer; transition: transform .15s, border-color .15s; }
+    .num-click:active { transform: scale(.98); }
+    .ni-more { display: inline-block; margin-top: 6px; font-size: .78rem; color: #c4b5fd; }
+    .ni-h { font-size: 1.15rem; margin: 0 0 8px; color: #fcd34d; }
+    .ni-ul { margin: 8px 0 0 18px; padding: 0; line-height: 1.6; }
+    #v-numinfo p { line-height: 1.6; }
     .master { font-size: .7rem; color: #fcd34d; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
 
     /* USTAWIENIA */
@@ -279,9 +285,9 @@
     <!-- ============ NUMEROLOGIA ============ -->
     <section class="view" id="v-num">
       <h1 style="margin-bottom:14px">Numerologia</h1>
-      <div class="card"><div class="num-big"><div class="num-circle" id="lpNum"></div><div><div class="master" id="lpMaster"></div><b>Droga Życia</b><p class="muted small" id="lpText"></p></div></div></div>
-      <div class="card"><div class="num-big"><div class="num-circle gold" id="pyNum"></div><div><div class="master" id="pyMaster"></div><b id="pyTitle">Rok Osobisty</b><p class="muted small" id="pyText"></p></div></div></div>
-      <div class="card"><div class="num-big"><div class="num-circle" id="nyNum" style="opacity:.75"></div><div><div class="master" id="nyMaster"></div><b id="nyTitle">Następny Rok Osobisty</b><p class="muted small" id="nyText"></p></div></div></div>
+      <div class="card num-click" id="lpCard"><div class="num-big"><div class="num-circle" id="lpNum"></div><div><div class="master" id="lpMaster"></div><b>Droga Życia</b><p class="muted small" id="lpText"></p><span class="ni-more">Dotknij, aby przeczytać więcej ›</span></div></div></div>
+      <div class="card num-click" id="pyCard"><div class="num-big"><div class="num-circle gold" id="pyNum"></div><div><div class="master" id="pyMaster"></div><b id="pyTitle">Rok Osobisty</b><p class="muted small" id="pyText"></p><span class="ni-more">Dotknij, aby przeczytać więcej ›</span></div></div></div>
+      <div class="card num-click" id="nyCard"><div class="num-big"><div class="num-circle" id="nyNum" style="opacity:.75"></div><div><div class="master" id="nyMaster"></div><b id="nyTitle">Następny Rok Osobisty</b><p class="muted small" id="nyText"></p><span class="ni-more">Dotknij, aby przeczytać więcej ›</span></div></div></div>
       <p class="muted small" style="text-align:center">Wyliczone z daty urodzenia: <span id="numBirth"></span></p>
 
       <div class="card" id="akaszaCard" hidden style="border-color:rgba(168,85,247,.5)">
@@ -294,6 +300,13 @@
     </section>
 
     <!-- ============ USTAWIENIA ============ -->
+    <!-- ============ NUMEROLOGIA: SZCZEGÓŁY ============ -->
+    <section class="view" id="v-numinfo">
+      <button class="back" id="niBack">← Wróć do numerologii</button>
+      <div class="num-big" style="margin:6px 0 16px"><div class="num-circle" id="niNum"></div><div><div class="master" id="niMaster"></div><h1 id="niTitle" style="font-size:1.4rem"></h1></div></div>
+      <div id="niBody"></div>
+    </section>
+
     <section class="view" id="v-set">
       <h1 style="margin-bottom:14px">Ustawienia</h1>
       <div class="card">
@@ -334,7 +347,7 @@
         <p class="muted small" style="margin:4px 0 12px">Kasuje sny, nagrania i profil z tego telefonu. Tego nie da się cofnąć.</p>
         <button class="btn danger full" id="wipeBtn">Usuń wszystko</button>
       </div>
-      <p class="muted small" style="text-align:center"><a href="./" style="color:var(--muted)">Strona Dziennika Snów</a> · wersja 1.13</p>
+      <p class="muted small" style="text-align:center"><a href="./" style="color:var(--muted)">Strona Dziennika Snów</a> · wersja 1.14</p>
     </section>
   </main>
 
@@ -493,6 +506,51 @@
     22: "Mistrzowski rok wielkich planów. Czas na realizację dużych wizji."
   };
 
+  /* Szczegółowe opisy (podstrona po kliknięciu w liczbę) */
+  const LP_INFO = {
+    1: { h: "Pionier, który otwiera nowe drogi", o: "Jedynka to energia początku. Przychodzisz na świat po to, żeby iść własną ścieżką, podejmować decyzje i dawać innym odwagę. Najlepiej czujesz się, gdy możesz działać samodzielnie i tworzyć coś od zera.", m: ["odwaga i inicjatywa", "silna wola i determinacja", "oryginalne pomysły", "naturalne przywództwo"], w: ["niecierpliwość", "trudność w proszeniu o pomoc", "skłonność do pracy ponad siły"], s: "W snach często pojawiają się drogi, szczyty, prowadzenie pojazdu albo bycie pierwszym. To obraz Twojej potrzeby sprawczości.", r: "Twoja siła rośnie, gdy pozwalasz sobie też odpocząć i przyjąć wsparcie." },
+    2: { h: "Dyplomata o wrażliwym sercu", o: "Dwójka to energia relacji i harmonii. Wyczuwasz nastroje innych, łagodzisz konflikty i łączysz ludzi. Twoja moc jest cicha, ale bardzo głęboka.", m: ["empatia i intuicja", "cierpliwość", "umiejętność współpracy", "wyczucie piękna i szczegółu"], w: ["zbytnie dopasowywanie się do innych", "trudność z mówieniem „nie”", "chłonięcie cudzych emocji"], s: "Sny Dwójki bywają bardzo emocjonalne i pełne relacji. Często śnią się bliscy, rozmowy i spotkania.", r: "Twoje potrzeby są tak samo ważne jak potrzeby innych. Stawiaj granice z czułością." },
+    3: { h: "Twórca i opowiadacz", o: "Trójka to radość, ekspresja i słowo. Masz dar inspirowania innych, rozśmieszania ich i dodawania lekkości. Najlepiej rozwijasz się, gdy możesz tworzyć i wyrażać siebie.", m: ["kreatywność", "talent do mówienia i pisania", "optymizm", "łatwość w nawiązywaniu kontaktów"], w: ["rozpraszanie się na wiele rzeczy naraz", "ukrywanie smutku za uśmiechem", "niedokańczanie projektów"], s: "Sny Trójki są barwne, filmowe i pełne symboli. To świetny materiał do zapisywania i tworzenia.", r: "Wybierz jedną rzecz i doprowadź ją do końca. Twój talent potrzebuje kierunku." },
+    4: { h: "Budowniczy solidnych fundamentów", o: "Czwórka to porządek, wytrwałość i odpowiedzialność. Ludzie wiedzą, że mogą na Tobie polegać. Tworzysz rzeczy, które przetrwają.", m: ["rzetelność i lojalność", "cierpliwość w działaniu", "praktyczne myślenie", "dyscyplina"], w: ["sztywność i opór przed zmianą", "przepracowanie", "zbyt duża kontrola"], s: "W snach Czwórki często pojawiają się domy, budynki, konstrukcje i porządkowanie. Stan domu we śnie bywa obrazem Twojego wnętrza.", r: "Zostaw w planie miejsce na spontaniczność. Nie wszystko musi być pod kontrolą." },
+    5: { h: "Wolny duch i odkrywca", o: "Piątka to zmiana, ruch i ciekawość świata. Potrzebujesz przestrzeni, nowych doświadczeń i swobody. Uczysz się przez przeżywanie.", m: ["elastyczność", "odwaga w podejmowaniu zmian", "ciekawość i otwartość", "łatwość adaptacji"], w: ["niepokój i znudzenie rutyną", "impulsywność", "trudność z zobowiązaniami"], s: "Sny Piątki to podróże, lotniska, pociągi, ucieczki i nowe miejsca. Pokazują Twoją potrzebę wolności.", r: "Prawdziwa wolność rodzi się w środku. Znajdź spokój, który nie zależy od zmiany otoczenia." },
+    6: { h: "Opiekun serca", o: "Szóstka to miłość, troska i odpowiedzialność za bliskich. Tworzysz ciepło wokół siebie, a dom i rodzina są dla Ciebie bardzo ważne.", m: ["troskliwość i oddanie", "poczucie piękna i harmonii", "umiejętność wspierania", "odpowiedzialność"], w: ["branie na siebie zbyt wiele", "perfekcjonizm", "zapominanie o sobie"], s: "W snach Szóstki pojawiają się dom, dzieci, rodzina i opieka nad kimś. Często są to sny o więziach.", r: "Zaopiekuj się sobą tak, jak opiekujesz się innymi." },
+    7: { h: "Mistyk i poszukiwacz prawdy", o: "Siódemka to liczba duchowości, intuicji i głębokiej refleksji. Szukasz sensu pod powierzchnią rzeczy. Cisza i samotność nie są dla Ciebie karą, tylko źródłem mocy.", m: ["silna intuicja", "głęboka mądrość", "analityczny umysł", "duchowa wrażliwość"], w: ["dystans do ludzi", "nadmierne analizowanie", "poczucie niezrozumienia"], s: "Siódemki często mają żywe, symboliczne i prorocze sny. Dziennik snów może być dla Ciebie szczególnie wartościowy.", r: "Ufaj swojej intuicji, ale dziel się nią. Twoja mądrość jest potrzebna innym." },
+    8: { h: "Mistrz materii i siły", o: "Ósemka to sprawczość, ambicja i umiejętność zarządzania. Masz w sobie energię, która przyciąga sukces i pozwala realizować duże cele.", m: ["siła i pewność siebie", "talent organizacyjny", "wytrwałość w dążeniu do celu", "zmysł do finansów"], w: ["pracoholizm", "potrzeba kontroli", "mylenie wartości z osiągnięciami"], s: "W snach Ósemki pojawiają się pieniądze, władza, egzaminy i wyzwania. Często dotyczą poczucia własnej wartości.", r: "Twoja wartość nie zależy od wyników. Sukces smakuje najlepiej, gdy jest w nim miejsce na serce." },
+    9: { h: "Humanista i stara dusza", o: "Dziewiątka to współczucie, mądrość i służba. Masz w sobie szerokie spojrzenie na świat i potrzebę dawania czegoś od siebie innym.", m: ["empatia i hojność", "mądrość życiowa", "tolerancja", "twórcza wyobraźnia"], w: ["trudność w odpuszczaniu przeszłości", "poświęcanie się ponad miarę", "rozczarowanie światem"], s: "Sny Dziewiątki bywają głębokie, pożegnalne i pełne przemian. Często śnią się zakończenia i nowe otwarcia.", r: "Odpuszczanie to nie strata, tylko robienie miejsca na nowe." },
+    11: { h: "Mistrz intuicji i natchnienia", o: "Jedenastka to liczba mistrzowska. Niesie bardzo wysoką wrażliwość, intuicję i duchowe przewodnictwo. Wiele osób z tą liczbą czuje, że ma do przekazania coś ważnego.", m: ["silna intuicja i przeczucia", "inspirowanie innych", "duchowa głębia", "wizjonerstwo"], w: ["nadwrażliwość i napięcie nerwowe", "wątpienie w siebie", "przytłoczenie emocjami innych"], s: "Sny mogą być dla Ciebie szczególnie ważne: wyraziste, symboliczne, czasem prorocze. Warto zapisywać je codziennie.", r: "Uziemiaj się: ruch, natura, sen. Twoja wrażliwość jest darem, gdy masz o nią zadbane." },
+    22: { h: "Mistrz budowniczy", o: "Dwudziestka dwójka to liczba mistrzowska wielkich wizji zamienianych w rzeczywistość. Łączysz marzenia z praktycznym działaniem i możesz tworzyć rzeczy, które służą wielu ludziom.", m: ["ogromny potencjał realizacji", "wizja połączona z praktyką", "umiejętność organizowania ludzi", "wytrwałość"], w: ["presja i poczucie wielkiej odpowiedzialności", "lęk przed porażką", "przepracowanie"], s: "W snach pojawiają się budowle, mosty, wielkie projekty i wspinaczka. To obrazy Twojej misji.", r: "Rób duże rzeczy małymi krokami. Nie musisz udźwignąć wszystkiego naraz." },
+    33: { h: "Mistrz nauczyciel miłości", o: "Trzydzieści trzy to najrzadsza liczba mistrzowska. Niesie energię bezwarunkowej miłości, uzdrawiania i nauczania przez przykład.", m: ["głęboka empatia", "dar uzdrawiania i pocieszania", "mądrość serca", "inspirowanie innych"], w: ["zbyt duże poświęcanie się", "branie na siebie cudzych ciężarów", "zapominanie o sobie"], s: "Sny mogą przynosić przesłania, spotkania z przewodnikami i obrazy światła. Warto je zapisywać.", r: "Żeby dawać miłość, trzeba ją też przyjmować. Zacznij od siebie." }
+  };
+  const PY_INFO = {
+    1: { h: "Rok nowych początków", o: "Zaczynasz nowy, dziewięcioletni cykl. To czas siania: wszystko, co teraz rozpoczniesz, będzie rosło przez kolejne lata.", m: ["nowe projekty i decyzje", "zmiana pracy lub kierunku", "postawienie na siebie"], w: ["odkładanie decyzji", "oglądanie się za przeszłością"], s: "Sny mogą pokazywać drzwi, drogi i nowe miejsca. Zapisuj je, bo zdradzają, czego naprawdę chcesz.", r: "Zapisz jedną intencję na ten rok i wracaj do niej co miesiąc." },
+    2: { h: "Rok cierpliwości i relacji", o: "Po roku działania przychodzi czas spokoju, współpracy i dojrzewania. Rzeczy dzieją się wolniej, ale głębiej.", m: ["budowanie relacji i partnerstw", "współpraca", "słuchanie intuicji"], w: ["pośpiech i forsowanie", "zamykanie się na pomoc"], s: "Sny mogą być bardziej emocjonalne i dotyczyć bliskich osób. To dobry rok na pracę z uczuciami.", r: "Zaufaj, że to, co zasiałeś, rośnie, nawet jeśli jeszcze tego nie widać." },
+    3: { h: "Rok kreatywności i radości", o: "Czas ekspresji, kontaktów i lekkości. Energia sprzyja tworzeniu, spotkaniom i dzieleniu się sobą ze światem.", m: ["twórczość i nowe hobby", "nowe znajomości", "mówienie o swoich pomysłach"], w: ["rozpraszanie się", "wydawanie energii na zbyt wiele rzeczy"], s: "Sny bywają barwne i pełne symboli. Mogą podsuwać twórcze pomysły, więc zapisuj je od razu.", r: "Rób to, co sprawia Ci radość. Właśnie tam jest teraz Twoja droga." },
+    4: { h: "Rok pracy i fundamentów", o: "Czas porządkowania, budowania i konsekwencji. Wysiłek włożony teraz da stabilność na lata.", m: ["porządek w finansach i domu", "systematyczna praca", "dbanie o zdrowie"], w: ["szukanie dróg na skróty", "zaniedbywanie odpoczynku"], s: "W snach mogą pojawiać się domy, remonty i konstrukcje. Pokazują, co w Tobie wymaga uporządkowania.", r: "Małe kroki każdego dnia zbudują więcej niż jeden wielki zryw." },
+    5: { h: "Rok zmian i wolności", o: "Energia ruchu, przygody i niespodzianek. Rzeczy mogą zmieniać się szybko, a Ty dostajesz szansę, żeby wyjść poza schemat.", m: ["podróże i nowe doświadczenia", "zmiany, które dojrzewały", "otwartość na nowe"], w: ["chaos i impulsywne decyzje", "uciekanie od zobowiązań"], s: "Sny o podróżach, lotach i nowych miejscach mogą się nasilić. Zwróć uwagę, dokąd zmierzasz we śnie.", r: "Płyń ze zmianą, ale trzymaj ster. Wolność to też świadomy wybór." },
+    6: { h: "Rok domu i serca", o: "Czas miłości, rodziny i odpowiedzialności. Relacje wychodzą na pierwszy plan, a dom staje się centrum Twojego świata.", m: ["dbanie o bliskich", "zobowiązania i związki", "upiększanie domu"], w: ["branie na siebie cudzych problemów", "zapominanie o sobie"], s: "W snach mogą pojawiać się rodzina, dom i dzieci. To sny o więziach i o tym, czego potrzebuje Twoje serce.", r: "Dawaj, ale też przyjmuj. Troska o siebie to część troski o innych." },
+    7: { h: "Rok wglądu i duchowości", o: "Czas wyciszenia, nauki i pracy wewnętrznej. Świat zewnętrzny zwalnia, żebyś mógł usłyszeć siebie. To jeden z najlepszych lat na pracę ze snami.", m: ["medytacja i rozwój duchowy", "nauka i zgłębianie wiedzy", "odpoczynek i samotność z wyboru"], w: ["forsowanie spraw materialnych", "izolowanie się od wszystkich"], s: "Sny mogą być wyjątkowo wyraziste i pełne przesłań. Zapisuj je codziennie, bo to rok intuicji.", r: "Zadawaj pytania przed snem, a rano zapisuj, co przyszło." },
+    8: { h: "Rok sukcesu i plonów", o: "Czas zbierania owoców wcześniejszej pracy. Energia sprzyja karierze, finansom i realizacji ambitnych celów.", m: ["awans, rozwój zawodowy", "inwestycje i decyzje finansowe", "wzmacnianie swojej pozycji"], w: ["pracoholizm", "zaniedbywanie bliskich i zdrowia"], s: "Sny mogą dotyczyć pieniędzy, egzaminów i władzy. Pokazują Twoją relację z sukcesem i własną wartością.", r: "Bierz to, na co zapracowałeś, i dziel się obfitością." },
+    9: { h: "Rok zamknięć i oczyszczenia", o: "Koniec dziewięcioletniego cyklu. Czas porządkowania, wybaczania i odpuszczania tego, co już nie służy, żeby zrobić miejsce na nowe.", m: ["kończenie spraw", "wybaczanie i odpuszczanie", "pomaganie innym"], w: ["zaczynanie wielkich nowych projektów na siłę", "kurczowe trzymanie się przeszłości"], s: "Sny mogą być pożegnalne: śnią się osoby z przeszłości, przeprowadzki, zakończenia. To naturalne.", r: "Napisz, co chcesz zostawić w tym cyklu, i pozwól temu odejść." }
+  };
+  let numPowrot = "num";
+  function pokazNumInfo(typ, n, tytul) {
+    const d = (typ === "lp" ? LP_INFO : PY_INFO)[n]; if (!d) return;
+    const li = a => a.map(x => `<li>${esc(x)}</li>`).join("");
+    $("niNum").textContent = n;
+    $("niNum").className = "num-circle" + (typ === "lp" ? "" : " gold");
+    $("niTitle").textContent = tytul;
+    $("niMaster").textContent = [11, 22, 33].includes(n) ? "✦ Liczba mistrzowska" : "";
+    $("niBody").innerHTML = `
+      <h2 class="ni-h">${esc(d.h)}</h2>
+      <p>${esc(d.o)}</p>
+      <div class="card"><b>${typ === "lp" ? "✨ Mocne strony" : "✨ Sprzyja"}</b><ul class="ni-ul">${li(d.m)}</ul></div>
+      <div class="card"><b>${typ === "lp" ? "🌗 Wyzwania" : "⚠️ Uważaj na"}</b><ul class="ni-ul">${li(d.w)}</ul></div>
+      <div class="card"><b>🌙 W snach</b><p class="muted" style="margin-top:6px">${esc(d.s)}</p></div>
+      <div class="card" style="border-color:rgba(245,158,11,.45)"><b>🕯️ Wskazówka</b><p class="muted" style="margin-top:6px">${esc(d.r)}</p></div>
+      <p class="muted small" style="text-align:center;margin-top:10px">Numerologia to symboliczna mapa, nie wyrok. Traktuj ją jako inspirację.</p>`;
+    show("numinfo");
+  }
+
   /* =====================================================
      ŻYCZENIA URODZINOWE
      ===================================================== */
@@ -578,7 +636,7 @@
   let current = "home";
   function show(v) {
     document.querySelectorAll(".view").forEach(s => s.classList.toggle("on", s.id === "v-" + v));
-    document.querySelectorAll("#tabs button").forEach(b => b.classList.toggle("on", b.dataset.v === v));
+    document.querySelectorAll("#tabs button").forEach(b => b.classList.toggle("on", b.dataset.v === (v === "numinfo" ? "num" : v)));
     $("tabs").classList.toggle("hide", v === "onb");
     current = v; window.scrollTo(0, 0);
     if (v !== "list") { trybWyboru = false; wybor.clear(); $("selBar").hidden = true; }
@@ -1050,6 +1108,7 @@
     }
   }
   $("grpBack").onclick = () => show("list");
+  $("niBack").onclick = () => show("num");
 
   /* =====================================================
      NUMEROLOGIA
@@ -1061,6 +1120,9 @@
     $("lpNum").textContent = lp; $("lpMaster").textContent = master(lp); $("lpText").textContent = LP_TXT[lp];
     $("pyNum").textContent = py; $("pyMaster").textContent = ""; $("pyTitle").textContent = `Rok Osobisty ${y}`; $("pyText").textContent = PY_TXT[py];
     $("nyNum").textContent = ny; $("nyMaster").textContent = ""; $("nyTitle").textContent = `Rok Osobisty ${y + 1}`; $("nyText").textContent = PY_TXT[ny];
+    $("lpCard").onclick = () => pokazNumInfo("lp", lp, "Droga Życia " + lp);
+    $("pyCard").onclick = () => pokazNumInfo("py", py, `Rok Osobisty ${y}: ${py}`);
+    $("nyCard").onclick = () => pokazNumInfo("py", ny, `Rok Osobisty ${y + 1}: ${ny}`);
     $("numBirth").textContent = new Date(p.data + "T12:00").toLocaleDateString("pl-PL", { day: "numeric", month: "long", year: "numeric" });
     $("akaszaCard").hidden = !LS.get("akasza", false);
     $("akaszaCtx").value = LS.get("akaszaCtx", "");
